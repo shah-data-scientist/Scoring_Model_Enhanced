@@ -1,0 +1,559 @@
+[
+  {
+    "file_column": "previous_application.csv:*",
+    "file": "previous_application.csv",
+    "column": "*",
+    "importance": 478.0,
+    "contributing_model_features": [
+      "PREV_APPROVAL_RATE",
+      "PREV_CNT_PAYMENT_MEAN",
+      "PREV_APP_CREDIT_RATIO",
+      "PREV_AMT_DOWN_PAYMENT_SUM",
+      "POS_SK_ID_PREV_COUNT",
+      "PREV_STATUS_REFUSED_COUNT",
+      "PREV_CNT_PAYMENT_MAX",
+      "PREV_AMT_ANNUITY_MEAN",
+      "PREV_DAYS_FIRST_DUE_MAX",
+      "INST_SK_ID_PREV_COUNT",
+      "PREV_AMT_DOWN_PAYMENT_MAX",
+      "PREV_DAYS_DECISION_MAX",
+      "PREV_DAYS_LAST_DUE_MEAN",
+      "PREV_AMT_GOODS_PRICE_MIN",
+      "PREV_AMT_ANNUITY_MAX",
+      "PREV_DAYS_DECISION_MEAN",
+      "PREV_DAYS_FIRST_DUE_MEAN",
+      "PREV_AMT_ANNUITY_MIN",
+      "PREV_CNT_PAYMENT_SUM",
+      "PREV_AMT_APPLICATION_MAX"
+    ],
+    "cumulative_importance": 0.1362599771949829
+  },
+  {
+    "file_column": "bureau.csv:*",
+    "file": "bureau.csv",
+    "column": "*",
+    "importance": 348.0,
+    "contributing_model_features": [
+      "BUREAU_DAYS_CREDIT_ENDDATE_MAX",
+      "BUREAU_DEBT_TO_CREDIT_RATIO",
+      "BUREAU_DAYS_CREDIT_MAX",
+      "BUREAU_AMT_CREDIT_SUM_MAX",
+      "BUREAU_DAYS_CREDIT_MEAN",
+      "BUREAU_CREDIT_ACTIVE_COUNT",
+      "BUREAU_AMT_CREDIT_SUM_MEAN",
+      "BUREAU_AMT_CREDIT_SUM_DEBT_MEAN",
+      "BUREAU_DAYS_CREDIT_UPDATE_MIN",
+      "BUREAU_DAYS_CREDIT_MIN",
+      "BUREAU_AMT_CREDIT_SUM_SUM",
+      "BUREAU_AMT_CREDIT_SUM_DEBT_SUM",
+      "BUREAU_DAYS_CREDIT_ENDDATE_MEAN"
+    ],
+    "cumulative_importance": 0.2354618015963512
+  },
+  {
+    "file_column": "installments_payments.csv:*",
+    "file": "installments_payments.csv",
+    "column": "*",
+    "importance": 333.0,
+    "contributing_model_features": [
+      "INST_AMT_INSTALMENT_SUM",
+      "POS_CNT_INSTALMENT_MAX",
+      "INST_DAYS_INSTALMENT_MIN",
+      "INST_AMT_INSTALMENT_MIN",
+      "INST_DAYS_INSTALMENT_MEAN",
+      "POS_CNT_INSTALMENT_MEAN",
+      "INST_DAYS_INSTALMENT_MAX",
+      "INST_AMT_INSTALMENT_MAX",
+      "INST_NUM_INSTALMENT_NUMBER_MAX",
+      "INST_NUM_INSTALMENT_VERSION_NUNIQUE",
+      "POS_CNT_INSTALMENT_SUM",
+      "INST_AMT_INSTALMENT_MEAN"
+    ],
+    "cumulative_importance": 0.33038768529076395
+  },
+  {
+    "file_column": "application.csv:EXT_SOURCE_1",
+    "file": "application.csv",
+    "column": "EXT_SOURCE_1",
+    "importance": 226.0,
+    "contributing_model_features": [
+      "EXT_SOURCE_MEAN",
+      "EXT_SOURCE_1",
+      "EXT_SOURCE_MIN",
+      "EXT_SOURCE_MAX"
+    ],
+    "cumulative_importance": 0.39481185860889395
+  },
+  {
+    "file_column": "application.csv:EXT_SOURCE_3",
+    "file": "application.csv",
+    "column": "EXT_SOURCE_3",
+    "importance": 218.0,
+    "contributing_model_features": [
+      "EXT_SOURCE_MEAN",
+      "EXT_SOURCE_3",
+      "EXT_SOURCE_MIN",
+      "EXT_SOURCE_MAX"
+    ],
+    "cumulative_importance": 0.45695553021664764
+  },
+  {
+    "file_column": "application.csv:EXT_SOURCE_2",
+    "file": "application.csv",
+    "column": "EXT_SOURCE_2",
+    "importance": 213.0,
+    "contributing_model_features": [
+      "EXT_SOURCE_MEAN",
+      "EXT_SOURCE_2",
+      "EXT_SOURCE_MIN",
+      "EXT_SOURCE_MAX"
+    ],
+    "cumulative_importance": 0.5176738882554162
+  },
+  {
+    "file_column": "application.csv:AMT_CREDIT",
+    "file": "application.csv",
+    "column": "AMT_CREDIT",
+    "importance": 167.0,
+    "contributing_model_features": [
+      "CREDIT_TO_GOODS_RATIO",
+      "AMT_CREDIT"
+    ],
+    "cumulative_importance": 0.5652793614595211
+  },
+  {
+    "file_column": "application.csv:AMT_ANNUITY",
+    "file": "application.csv",
+    "column": "AMT_ANNUITY",
+    "importance": 127.0,
+    "contributing_model_features": [
+      "AMT_ANNUITY",
+      "DEBT_TO_INCOME_RATIO"
+    ],
+    "cumulative_importance": 0.6014823261117446
+  },
+  {
+    "file_column": "application.csv:DAYS_BIRTH",
+    "file": "application.csv",
+    "column": "DAYS_BIRTH",
+    "importance": 101.0,
+    "contributing_model_features": [
+      "DAYS_BIRTH"
+    ],
+    "cumulative_importance": 0.6302736602052451
+  },
+  {
+    "file_column": "application.csv:DAYS_EMPLOYED",
+    "file": "application.csv",
+    "column": "DAYS_EMPLOYED",
+    "importance": 95.0,
+    "contributing_model_features": [
+      "DAYS_EMPLOYED"
+    ],
+    "cumulative_importance": 0.6573546180159635
+  },
+  {
+    "file_column": "application.csv:AMT_GOODS_PRICE",
+    "file": "application.csv",
+    "column": "AMT_GOODS_PRICE",
+    "importance": 88.0,
+    "contributing_model_features": [
+      "CREDIT_TO_GOODS_RATIO"
+    ],
+    "cumulative_importance": 0.6824401368301026
+  },
+  {
+    "file_column": "application.csv:INST_IS_LATE_MEAN",
+    "file": "application.csv",
+    "column": "INST_IS_LATE_MEAN",
+    "importance": 58.0,
+    "contributing_model_features": [
+      "INST_IS_LATE_MEAN"
+    ],
+    "cumulative_importance": 0.6989737742303307
+  },
+  {
+    "file_column": "application.csv:AMT_INCOME_TOTAL",
+    "file": "application.csv",
+    "column": "AMT_INCOME_TOTAL",
+    "importance": 58.0,
+    "contributing_model_features": [
+      "DEBT_TO_INCOME_RATIO",
+      "AMT_INCOME_TOTAL"
+    ],
+    "cumulative_importance": 0.7155074116305588
+  },
+  {
+    "file_column": "POS_CASH_balance.csv:*",
+    "file": "POS_CASH_balance.csv",
+    "column": "*",
+    "importance": 53.0,
+    "contributing_model_features": [
+      "POS_MONTHS_BALANCE_MAX",
+      "POS_SK_DPD_DEF_MAX",
+      "POS_MONTHS_BALANCE_MEAN"
+    ],
+    "cumulative_importance": 0.7306157354618016
+  },
+  {
+    "file_column": "application.csv:DAYS_ID_PUBLISH",
+    "file": "application.csv",
+    "column": "DAYS_ID_PUBLISH",
+    "importance": 52.0,
+    "contributing_model_features": [
+      "DAYS_ID_PUBLISH"
+    ],
+    "cumulative_importance": 0.7454389965792474
+  },
+  {
+    "file_column": "application.csv:INST_PAYMENT_RATIO_MEAN",
+    "file": "application.csv",
+    "column": "INST_PAYMENT_RATIO_MEAN",
+    "importance": 47.0,
+    "contributing_model_features": [
+      "INST_PAYMENT_RATIO_MEAN"
+    ],
+    "cumulative_importance": 0.7588369441277081
+  },
+  {
+    "file_column": "application.csv:CODE_GENDER",
+    "file": "application.csv",
+    "column": "CODE_GENDER",
+    "importance": 43.0,
+    "contributing_model_features": [
+      "CODE_GENDER_M"
+    ],
+    "cumulative_importance": 0.7710946408209807
+  },
+  {
+    "file_column": "application.csv:FLAG_DOCUMENT_3",
+    "file": "application.csv",
+    "column": "FLAG_DOCUMENT_3",
+    "importance": 39.0,
+    "contributing_model_features": [
+      "TOTAL_DOCUMENTS_PROVIDED",
+      "FLAG_DOCUMENT_3"
+    ],
+    "cumulative_importance": 0.7822120866590649
+  },
+  {
+    "file_column": "application.csv:INST_DPD_MAX",
+    "file": "application.csv",
+    "column": "INST_DPD_MAX",
+    "importance": 33.0,
+    "contributing_model_features": [
+      "INST_DPD_MAX"
+    ],
+    "cumulative_importance": 0.7916191562143672
+  },
+  {
+    "file_column": "application.csv:DAYS_LAST_PHONE_CHANGE",
+    "file": "application.csv",
+    "column": "DAYS_LAST_PHONE_CHANGE",
+    "importance": 29.0,
+    "contributing_model_features": [
+      "DAYS_LAST_PHONE_CHANGE"
+    ],
+    "cumulative_importance": 0.7998859749144812
+  },
+  {
+    "file_column": "application.csv:FLAG_DOCUMENT_8",
+    "file": "application.csv",
+    "column": "FLAG_DOCUMENT_8",
+    "importance": 26.0,
+    "contributing_model_features": [
+      "TOTAL_DOCUMENTS_PROVIDED"
+    ],
+    "cumulative_importance": 0.8072976054732041
+  },
+  {
+    "file_column": "application.csv:FLAG_DOCUMENT_16",
+    "file": "application.csv",
+    "column": "FLAG_DOCUMENT_16",
+    "importance": 26.0,
+    "contributing_model_features": [
+      "TOTAL_DOCUMENTS_PROVIDED"
+    ],
+    "cumulative_importance": 0.814709236031927
+  },
+  {
+    "file_column": "application.csv:FLAG_DOCUMENT_7",
+    "file": "application.csv",
+    "column": "FLAG_DOCUMENT_7",
+    "importance": 26.0,
+    "contributing_model_features": [
+      "TOTAL_DOCUMENTS_PROVIDED"
+    ],
+    "cumulative_importance": 0.82212086659065
+  },
+  {
+    "file_column": "application.csv:FLAG_DOCUMENT_9",
+    "file": "application.csv",
+    "column": "FLAG_DOCUMENT_9",
+    "importance": 26.0,
+    "contributing_model_features": [
+      "TOTAL_DOCUMENTS_PROVIDED"
+    ],
+    "cumulative_importance": 0.8295324971493728
+  },
+  {
+    "file_column": "application.csv:FLAG_DOCUMENT_5",
+    "file": "application.csv",
+    "column": "FLAG_DOCUMENT_5",
+    "importance": 26.0,
+    "contributing_model_features": [
+      "TOTAL_DOCUMENTS_PROVIDED"
+    ],
+    "cumulative_importance": 0.8369441277080958
+  },
+  {
+    "file_column": "application.csv:FLAG_DOCUMENT_12",
+    "file": "application.csv",
+    "column": "FLAG_DOCUMENT_12",
+    "importance": 26.0,
+    "contributing_model_features": [
+      "TOTAL_DOCUMENTS_PROVIDED"
+    ],
+    "cumulative_importance": 0.8443557582668187
+  },
+  {
+    "file_column": "application.csv:FLAG_DOCUMENT_18",
+    "file": "application.csv",
+    "column": "FLAG_DOCUMENT_18",
+    "importance": 26.0,
+    "contributing_model_features": [
+      "TOTAL_DOCUMENTS_PROVIDED"
+    ],
+    "cumulative_importance": 0.8517673888255416
+  },
+  {
+    "file_column": "application.csv:FLAG_DOCUMENT_17",
+    "file": "application.csv",
+    "column": "FLAG_DOCUMENT_17",
+    "importance": 26.0,
+    "contributing_model_features": [
+      "TOTAL_DOCUMENTS_PROVIDED"
+    ],
+    "cumulative_importance": 0.8591790193842646
+  },
+  {
+    "file_column": "application.csv:FLAG_DOCUMENT_11",
+    "file": "application.csv",
+    "column": "FLAG_DOCUMENT_11",
+    "importance": 26.0,
+    "contributing_model_features": [
+      "TOTAL_DOCUMENTS_PROVIDED"
+    ],
+    "cumulative_importance": 0.8665906499429875
+  },
+  {
+    "file_column": "application.csv:FLAG_DOCUMENT_13",
+    "file": "application.csv",
+    "column": "FLAG_DOCUMENT_13",
+    "importance": 26.0,
+    "contributing_model_features": [
+      "TOTAL_DOCUMENTS_PROVIDED"
+    ],
+    "cumulative_importance": 0.8740022805017104
+  },
+  {
+    "file_column": "application.csv:FLAG_DOCUMENT_4",
+    "file": "application.csv",
+    "column": "FLAG_DOCUMENT_4",
+    "importance": 26.0,
+    "contributing_model_features": [
+      "TOTAL_DOCUMENTS_PROVIDED"
+    ],
+    "cumulative_importance": 0.8814139110604333
+  },
+  {
+    "file_column": "application.csv:FLAG_DOCUMENT_19",
+    "file": "application.csv",
+    "column": "FLAG_DOCUMENT_19",
+    "importance": 26.0,
+    "contributing_model_features": [
+      "TOTAL_DOCUMENTS_PROVIDED"
+    ],
+    "cumulative_importance": 0.8888255416191562
+  },
+  {
+    "file_column": "application.csv:FLAG_DOCUMENT_21",
+    "file": "application.csv",
+    "column": "FLAG_DOCUMENT_21",
+    "importance": 26.0,
+    "contributing_model_features": [
+      "TOTAL_DOCUMENTS_PROVIDED"
+    ],
+    "cumulative_importance": 0.8962371721778791
+  },
+  {
+    "file_column": "application.csv:FLAG_DOCUMENT_14",
+    "file": "application.csv",
+    "column": "FLAG_DOCUMENT_14",
+    "importance": 26.0,
+    "contributing_model_features": [
+      "TOTAL_DOCUMENTS_PROVIDED"
+    ],
+    "cumulative_importance": 0.9036488027366021
+  },
+  {
+    "file_column": "application.csv:FLAG_DOCUMENT_15",
+    "file": "application.csv",
+    "column": "FLAG_DOCUMENT_15",
+    "importance": 26.0,
+    "contributing_model_features": [
+      "TOTAL_DOCUMENTS_PROVIDED"
+    ],
+    "cumulative_importance": 0.9110604332953249
+  },
+  {
+    "file_column": "application.csv:FLAG_DOCUMENT_2",
+    "file": "application.csv",
+    "column": "FLAG_DOCUMENT_2",
+    "importance": 26.0,
+    "contributing_model_features": [
+      "TOTAL_DOCUMENTS_PROVIDED"
+    ],
+    "cumulative_importance": 0.9184720638540479
+  },
+  {
+    "file_column": "application.csv:FLAG_DOCUMENT_6",
+    "file": "application.csv",
+    "column": "FLAG_DOCUMENT_6",
+    "importance": 26.0,
+    "contributing_model_features": [
+      "TOTAL_DOCUMENTS_PROVIDED"
+    ],
+    "cumulative_importance": 0.9258836944127709
+  },
+  {
+    "file_column": "application.csv:FLAG_DOCUMENT_20",
+    "file": "application.csv",
+    "column": "FLAG_DOCUMENT_20",
+    "importance": 26.0,
+    "contributing_model_features": [
+      "TOTAL_DOCUMENTS_PROVIDED"
+    ],
+    "cumulative_importance": 0.9332953249714937
+  },
+  {
+    "file_column": "application.csv:FLAG_DOCUMENT_10",
+    "file": "application.csv",
+    "column": "FLAG_DOCUMENT_10",
+    "importance": 26.0,
+    "contributing_model_features": [
+      "TOTAL_DOCUMENTS_PROVIDED"
+    ],
+    "cumulative_importance": 0.9407069555302167
+  },
+  {
+    "file_column": "application.csv:DAYS_REGISTRATION",
+    "file": "application.csv",
+    "column": "DAYS_REGISTRATION",
+    "importance": 23.0,
+    "contributing_model_features": [
+      "DAYS_REGISTRATION"
+    ],
+    "cumulative_importance": 0.9472633979475484
+  },
+  {
+    "file_column": "application.csv:NAME_EDUCATION_TYPE_Higher_education",
+    "file": "application.csv",
+    "column": "NAME_EDUCATION_TYPE_Higher_education",
+    "importance": 23.0,
+    "contributing_model_features": [
+      "NAME_EDUCATION_TYPE_Higher_education"
+    ],
+    "cumulative_importance": 0.9538198403648803
+  },
+  {
+    "file_column": "application.csv:OWN_CAR_AGE",
+    "file": "application.csv",
+    "column": "OWN_CAR_AGE",
+    "importance": 21.0,
+    "contributing_model_features": [
+      "OWN_CAR_AGE"
+    ],
+    "cumulative_importance": 0.959806157354618
+  },
+  {
+    "file_column": "application.csv:NAME_FAMILY_STATUS_Married",
+    "file": "application.csv",
+    "column": "NAME_FAMILY_STATUS_Married",
+    "importance": 20.0,
+    "contributing_model_features": [
+      "NAME_FAMILY_STATUS_Married"
+    ],
+    "cumulative_importance": 0.9655074116305588
+  },
+  {
+    "file_column": "application.csv:INST_DPD_MEAN",
+    "file": "application.csv",
+    "column": "INST_DPD_MEAN",
+    "importance": 20.0,
+    "contributing_model_features": [
+      "INST_DPD_MEAN"
+    ],
+    "cumulative_importance": 0.9712086659064995
+  },
+  {
+    "file_column": "application.csv:FLAG_OWN_CAR",
+    "file": "application.csv",
+    "column": "FLAG_OWN_CAR",
+    "importance": 20.0,
+    "contributing_model_features": [
+      "FLAG_OWN_CAR_Y"
+    ],
+    "cumulative_importance": 0.9769099201824402
+  },
+  {
+    "file_column": "application.csv:INST_PAYMENT_DIFF_MEAN",
+    "file": "application.csv",
+    "column": "INST_PAYMENT_DIFF_MEAN",
+    "importance": 20.0,
+    "contributing_model_features": [
+      "INST_PAYMENT_DIFF_MEAN"
+    ],
+    "cumulative_importance": 0.9826111744583809
+  },
+  {
+    "file_column": "application.csv:INST_PAYMENT_RATIO_MAX",
+    "file": "application.csv",
+    "column": "INST_PAYMENT_RATIO_MAX",
+    "importance": 16.0,
+    "contributing_model_features": [
+      "INST_PAYMENT_RATIO_MAX"
+    ],
+    "cumulative_importance": 0.9871721778791334
+  },
+  {
+    "file_column": "application.csv:REGION_RATING_CLIENT",
+    "file": "application.csv",
+    "column": "REGION_RATING_CLIENT",
+    "importance": 15.0,
+    "contributing_model_features": [
+      "REGION_RATING_CLIENT"
+    ],
+    "cumulative_importance": 0.991448118586089
+  },
+  {
+    "file_column": "application.csv:INST_PAYMENT_DIFF_SUM",
+    "file": "application.csv",
+    "column": "INST_PAYMENT_DIFF_SUM",
+    "importance": 15.0,
+    "contributing_model_features": [
+      "INST_PAYMENT_DIFF_SUM"
+    ],
+    "cumulative_importance": 0.9957240592930444
+  },
+  {
+    "file_column": "application.csv:FLOORSMAX_AVG",
+    "file": "application.csv",
+    "column": "FLOORSMAX_AVG",
+    "importance": 15.0,
+    "contributing_model_features": [
+      "FLOORSMAX_AVG"
+    ],
+    "cumulative_importance": 1.0
+  }
+]

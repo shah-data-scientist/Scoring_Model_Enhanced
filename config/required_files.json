@@ -1,0 +1,30 @@
+{
+  "application.csv": {
+    "required": true,
+    "description": "Main application data"
+  },
+  "bureau.csv": {
+    "required": true,
+    "description": "Bureau credit history"
+  },
+  "bureau_balance.csv": {
+    "required": true,
+    "description": "Bureau monthly balance"
+  },
+  "previous_application.csv": {
+    "required": true,
+    "description": "Previous applications"
+  },
+  "credit_card_balance.csv": {
+    "required": true,
+    "description": "Credit card monthly balance"
+  },
+  "installments_payments.csv": {
+    "required": true,
+    "description": "Payment installments"
+  },
+  "POS_CASH_balance.csv": {
+    "required": true,
+    "description": "POS and cash loans balance"
+  }
+}
