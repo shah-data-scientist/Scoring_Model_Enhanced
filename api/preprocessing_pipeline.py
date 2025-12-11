@@ -11,6 +11,8 @@ from pathlib import Path
 from typing import Dict, Tuple
 import sys
 import warnings
+import joblib
+import json
 
 # Add project root to path
 PROJECT_ROOT = Path(__file__).parent.parent
@@ -24,11 +26,11 @@ from src.feature_aggregation import (
     aggregate_credit_card,
     aggregate_installments
 )
-from src.domain_features import create_domain_features
 from src.feature_engineering import (
     encode_categorical_features,
     clean_column_names
 )
+from src.domain_features import create_domain_features
 
 # Suppress warnings for cleaner output
 warnings.filterwarnings('ignore')
@@ -52,9 +54,15 @@ class PreprocessingPipeline:
         self.feature_names_path = feature_names_path or (
             PROJECT_ROOT / "data" / "processed" / "feature_names.csv"
         )
+        
+        # Path to scaler and medians
+        self.scaler_path = PROJECT_ROOT / "data" / "processed" / "scaler.joblib"
+        self.medians_path = PROJECT_ROOT / "data" / "processed" / "medians.json"
 
         self.use_precomputed = use_precomputed
         self.precomputed_features = None
+        self.scaler = None
+        self.medians = None
 
         # Load expected feature names and order
         if self.feature_names_path.exists():
@@ -63,6 +71,25 @@ class PreprocessingPipeline:
         else:
             self.expected_features = None
             print(f"Warning: {self.feature_names_path} not found. Feature order may not match model.")
+            
+        # Load scaler
+        if self.scaler_path.exists():
+            try:
+                self.scaler = joblib.load(self.scaler_path)
+                print(f"[INFO] Loaded scaler from {self.scaler_path}")
+            except Exception as e:
+                print(f"[WARNING] Failed to load scaler: {e}")
+        else:
+            print(f"[WARNING] Scaler not found at {self.scaler_path}. Live features will be unscaled!")
+
+        # Load medians
+        if self.medians_path.exists():
+            try:
+                with open(self.medians_path, 'r') as f:
+                    self.medians = json.load(f)
+                print(f"[INFO] Loaded {len(self.medians)} medians from {self.medians_path}")
+            except Exception as e:
+                print(f"[WARNING] Failed to load medians: {e}")
 
         # Load precomputed features if available
         if self.use_precomputed:
@@ -282,6 +309,7 @@ class PreprocessingPipeline:
     def impute_missing_values(self, df: pd.DataFrame) -> pd.DataFrame:
         """
         Impute missing values using median for numerical features.
+        Uses global training medians if available, otherwise batch median.
 
         Args:
             df: Input DataFrame
@@ -297,19 +325,34 @@ class PreprocessingPipeline:
             sk_id_curr = df['SK_ID_CURR']
             df = df.drop(columns=['SK_ID_CURR'])
 
-        # Impute numerical columns with median
+        # Impute numerical columns
         numerical_cols = df.select_dtypes(include=[np.number]).columns
+        
+        # Use global medians if available
+        if self.medians is not None:
+            print("    Using global training medians for imputation")
+            for col in numerical_cols:
+                if col in self.medians:
+                    df[col] = df[col].fillna(self.medians[col])
+                else:
+                    # Fallback to batch median
+                    median_val = df[col].median()
+                    if pd.isna(median_val):
+                        median_val = 0
+                    df[col] = df[col].fillna(median_val)
+        else:
+            # Fallback to batch median (legacy behavior)
+            print("    Using batch medians for imputation (Warning: may be unstable for small batches)")
+            missing_counts = df[numerical_cols].isnull().sum()
+            cols_with_missing = missing_counts[missing_counts > 0]
 
-        missing_counts = df[numerical_cols].isnull().sum()
-        cols_with_missing = missing_counts[missing_counts > 0]
-
-        if len(cols_with_missing) > 0:
-            print(f"    Imputing {len(cols_with_missing)} columns with missing values")
-            for col in cols_with_missing.index:
-                median_val = df[col].median()
-                if pd.isna(median_val):
-                    median_val = 0  # If all values are NaN, use 0
-                df[col] = df[col].fillna(median_val)
+            if len(cols_with_missing) > 0:
+                print(f"    Imputing {len(cols_with_missing)} columns with missing values")
+                for col in cols_with_missing.index:
+                    median_val = df[col].median()
+                    if pd.isna(median_val):
+                        median_val = 0  # If all values are NaN, use 0
+                    df[col] = df[col].fillna(median_val)
 
         # Add back SK_ID_CURR
         if sk_id_curr is not None:
@@ -522,6 +565,33 @@ class PreprocessingPipeline:
         # Step 5: Align features with model expectations
         print("\nStep 5: Aligning features with model")
         df = self.align_features(df)
+        
+        # Step 6: Scale features
+        if self.scaler is not None:
+            print("\nStep 6: Scaling features")
+            # Save SK_ID_CURR if present
+            current_sk_id = None
+            if 'SK_ID_CURR' in df.columns:
+                current_sk_id = df['SK_ID_CURR']
+                df_to_scale = df.drop(columns=['SK_ID_CURR'])
+            else:
+                df_to_scale = df
+                
+            # Scale
+            try:
+                # Ensure columns match scaler expectations
+                if list(df_to_scale.columns) == self.expected_features:
+                    scaled_values = self.scaler.transform(df_to_scale)
+                    df = pd.DataFrame(scaled_values, columns=df_to_scale.columns, index=df_to_scale.index)
+                    
+                    # Add back SK_ID_CURR
+                    if current_sk_id is not None:
+                        df.insert(0, 'SK_ID_CURR', current_sk_id)
+                    print("    Features scaled successfully")
+                else:
+                    print("    Warning: Column mismatch, skipping scaling")
+            except Exception as e:
+                print(f"    Warning: Scaling failed: {e}")
 
         # Extract final features
         if keep_sk_id:
