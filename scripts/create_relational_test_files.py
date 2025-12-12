@@ -21,22 +21,29 @@ def create_relational_test_files():
         return
 
     # Sort and Select
-    df_sub_sorted = df_sub.sort_values(by="TARGET", ascending=False)
+    # df_sub_sorted = df_sub.sort_values(by="TARGET", ascending=False)
     
-    high_risk = df_sub_sorted.head(3).copy()
-    high_risk['risk_category'] = 'High'
+    # Select 50 Random Applications
+    print("Selecting 50 random applications...")
+    selected_meta = df_sub.sample(n=50, random_state=42).copy()
     
-    low_risk = df_sub_sorted.tail(4).copy()
-    low_risk['risk_category'] = 'Low'
+    # Assign Risk Category for file naming (based on global distribution)
+    # We can use simple thresholds or just quantiles of the sample
+    # Let's use thresholds from the full submission file for consistency
+    high_threshold = df_sub['TARGET'].quantile(0.90)
+    low_threshold = df_sub['TARGET'].quantile(0.10)
     
-    mid_idx = len(df_sub_sorted) // 2
-    medium_risk = df_sub_sorted.iloc[mid_idx-1 : mid_idx+2].copy()
-    medium_risk['risk_category'] = 'Medium'
+    def get_risk_cat(prob):
+        if prob >= high_threshold: return 'High'
+        if prob <= low_threshold: return 'Low'
+        return 'Medium'
+        
+    selected_meta['risk_category'] = selected_meta['TARGET'].apply(get_risk_cat)
     
-    selected_meta = pd.concat([high_risk, medium_risk, low_risk])
     selected_ids_set = set(selected_meta['SK_ID_CURR'].tolist())
     
     print(f"Selected {len(selected_ids_set)} applications.")
+    print(selected_meta['risk_category'].value_counts())
 
     # Dictionary to hold the filtered data for each table
     # Key: table name, Value: DataFrame
