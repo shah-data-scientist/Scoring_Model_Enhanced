@@ -27,6 +27,9 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        - BUILDKIT_INLINE_CACHE=1
+    image: credit-scoring-api:latest
     container_name: credit-scoring-api
     depends_on:
       postgres:
@@ -75,6 +78,9 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.streamlit
+      args:
+        - BUILDKIT_INLINE_CACHE=1
+    image: credit-scoring-streamlit:latest
     container_name: credit-scoring-streamlit
     depends_on:
       api:

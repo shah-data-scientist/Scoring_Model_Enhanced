@@ -1,17 +1,15 @@
-# Dockerfile for Credit Scoring API - Optimized Multi-stage Build
+# Dockerfile for Credit Scoring API - Lean Multi-stage Build
 
 # Stage 1: Export dependencies
-FROM python:3.12-slim as builder
+FROM python:3.12-slim AS builder
 
 WORKDIR /app
 
-# Install Poetry
-RUN pip install poetry poetry-plugin-export
+# Install Poetry and export dependencies in one layer
+RUN pip install --no-cache-dir poetry poetry-plugin-export
 
-# Copy dependency files
 COPY pyproject.toml poetry.lock ./
 
-# Export dependencies to requirements.txt
 RUN poetry export --only main --without-hashes --format=requirements.txt > requirements.txt
 
 # Stage 2: Runtime environment
@@ -19,34 +17,29 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
-# Install system dependencies
-# libgomp1 is required for LightGBM/XGBoost
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    curl \
-    libgomp1 \
-    && rm -rf /var/lib/apt/lists/*
-
-# Copy requirements from builder
+# Install system dependencies and Python packages in one layer
 COPY --from=builder /app/requirements.txt .
 
-# Install dependencies using pip (faster and lighter than poetry)
-RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir -r requirements.txt
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl=7.* \
+    libgomp1 \
+    && rm -rf /var/lib/apt/lists/* \
+    && pip install --no-cache-dir --upgrade pip \
+    && pip install --no-cache-dir -r requirements.txt \
+    && rm requirements.txt
 
-# Copy application code
-COPY api ./api
-COPY src ./src
-COPY backend ./backend
-COPY config ./config
-COPY config.yaml .
+# Create user and directories first (better layer caching)
+RUN addgroup --system --gid 1001 appgroup \
+    && adduser --system --uid 1001 --gid 1001 appuser \
+    && mkdir -p logs mlruns models data \
+    && chown -R appuser:appgroup /app
 
-# Create required directories
-RUN mkdir -p logs mlruns models data
-
-# Create a non-root user and switch to it
-RUN addgroup --system --gid 1001 appgroup && \
-    adduser --system --uid 1001 --gid 1001 appuser && \
-    chown -R appuser:appgroup /app
+# Copy only necessary application code
+COPY --chown=appuser:appgroup api ./api
+COPY --chown=appuser:appgroup src ./src
+COPY --chown=appuser:appgroup backend ./backend
+COPY --chown=appuser:appgroup config ./config
+COPY --chown=appuser:appgroup config.yaml .
 
 USER appuser
 

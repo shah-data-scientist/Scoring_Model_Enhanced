@@ -37,15 +37,26 @@ test_*.py
 .coverage
 .pytest_cache/
 
-# Large data files (keep only processed)
-data/
+# Large data files (only copy required files explicitly)
+data/application_train.csv
+data/bureau_balance.csv
+data/bureau.csv
+data/credit_card_balance.csv
+data/HomeCredit_columns_description.csv
+data/installments_payments.csv
+data/POS_CASH_balance.csv
+data/previous_application.csv
+data/sample_submission.csv
+data/samples/
+data/end_user_tests/
+data/test_missing_*/
 
-# MLflow
+# MLflow (mount as volume instead)
 mlruns/
 mlruns_full_backup/
 mlartifacts/
 
-# Models
+# Models (mount as volume instead)
 models/
 
 # Results and artifacts
