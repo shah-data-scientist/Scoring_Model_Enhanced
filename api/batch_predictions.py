@@ -371,11 +371,14 @@ async def predict_batch(
             if shap_values_list is not None:
                 shap_dict = {}
                 for j, feat_name in enumerate(feature_names):
-                    shap_dict[feat_name] = float(shap_values_list[i, j])
+                    # Convert NaN to None for JSON serialization
+                    shap_val = float(shap_values_list[i, j])
+                    shap_dict[feat_name] = None if (np.isnan(shap_val) or np.isinf(shap_val)) else shap_val
                 pred_data['shap_values'] = shap_dict
 
-                # Get top 10 features by absolute SHAP value
-                sorted_features = sorted(shap_dict.items(), key=lambda x: abs(x[1]), reverse=True)[:10]
+                # Get top 10 features by absolute SHAP value (excluding NaN/inf)
+                valid_features = [(f, v) for f, v in shap_dict.items() if v is not None]
+                sorted_features = sorted(valid_features, key=lambda x: abs(x[1]), reverse=True)[:10]
                 pred_data['top_features'] = [{'feature': f, 'shap_value': v} for f, v in sorted_features]
 
             predictions_data.append(pred_data)

@@ -14,9 +14,11 @@ from datetime import datetime
 
 import streamlit as st
 
-# Add project root to path
+# Add project root to path before importing local packages
 PROJECT_ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
+
+from streamlit_app.config import API_BASE_URL
 
 # Configure logging
 logging.basicConfig(
@@ -128,7 +130,7 @@ def main():
                 # Pre-warm API connection
                 try:
                     import requests
-                    requests.get("http://localhost:8000/health", timeout=1)
+                    requests.get(f"{API_BASE_URL}/health", timeout=1)
                 except Exception:
                     pass  # API might not be running - that's OK
             st.session_state.initial_load_complete = True

@@ -3,9 +3,12 @@
 Create, Read, Update, Delete operations for all models.
 """
 
+import json
+import math
 from datetime import UTC, datetime
 from typing import Any
 
+import numpy as np
 from sqlalchemy import desc, func
 from sqlalchemy.orm import Session
 
@@ -238,20 +241,39 @@ def store_raw_applications_bulk(
     """
     raw_apps = []
     for data in applications_data:
+        # Convert NaN values to None for JSON serialization
+        clean_data = {}
+        for key, value in data.items():
+            if isinstance(value, (float, np.floating)) and (math.isnan(value) or np.isnan(value)):
+                clean_data[key] = None
+            elif isinstance(value, np.integer):
+                clean_data[key] = int(value)
+            elif isinstance(value, np.floating):
+                clean_data[key] = float(value)
+            else:
+                clean_data[key] = value
+        
+        # Helper to get clean value
+        def get_clean(key):
+            val = clean_data.get(key)
+            if isinstance(val, (float, np.floating)) and (math.isnan(val) or val is None):
+                return None
+            return val
+        
         raw_app = RawApplication(
             batch_id=batch_id,
-            sk_id_curr=data.get('SK_ID_CURR'),
-            amt_credit=data.get('AMT_CREDIT'),
-            amt_annuity=data.get('AMT_ANNUITY'),
-            amt_income_total=data.get('AMT_INCOME_TOTAL'),
-            amt_goods_price=data.get('AMT_GOODS_PRICE'),
-            ext_source_1=data.get('EXT_SOURCE_1'),
-            ext_source_2=data.get('EXT_SOURCE_2'),
-            ext_source_3=data.get('EXT_SOURCE_3'),
-            days_birth=data.get('DAYS_BIRTH'),
-            days_employed=data.get('DAYS_EMPLOYED'),
-            code_gender=data.get('CODE_GENDER'),
-            raw_data=data  # Store complete raw data as JSON
+            sk_id_curr=get_clean('SK_ID_CURR'),
+            amt_credit=get_clean('AMT_CREDIT'),
+            amt_annuity=get_clean('AMT_ANNUITY'),
+            amt_income_total=get_clean('AMT_INCOME_TOTAL'),
+            amt_goods_price=get_clean('AMT_GOODS_PRICE'),
+            ext_source_1=get_clean('EXT_SOURCE_1'),
+            ext_source_2=get_clean('EXT_SOURCE_2'),
+            ext_source_3=get_clean('EXT_SOURCE_3'),
+            days_birth=get_clean('DAYS_BIRTH'),
+            days_employed=get_clean('DAYS_EMPLOYED'),
+            code_gender=get_clean('CODE_GENDER'),
+            raw_data=json.loads(json.dumps(clean_data, default=str))  # Clean JSON with NaN converted to null
         )
         raw_apps.append(raw_app)
 

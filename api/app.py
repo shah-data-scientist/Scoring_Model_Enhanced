@@ -261,16 +261,16 @@ async def shutdown():
 # API Endpoints
 # ============================================================================
 
-# @app.get("/", tags=["General"])
-# async def root():
-#     """Root endpoint with API information."""
-#     return {
-#         "name": "Credit Scoring API",
-#         "version": "1.0.0",
-#         "status": "active",
-#         "docs_url": "/docs",
-#         "health_url": "/health"
-#     }
+@app.get("/", tags=["General"])
+async def root():
+    """Root endpoint - API information."""
+    return {
+        "service": "Credit Scoring API",
+        "version": "2.0.0",
+        "status": "active",
+        "docs_url": "/docs",
+        "health_url": "/health"
+    }
 
 
 @app.get("/health", response_model=HealthResponse, tags=["General"])

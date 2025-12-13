@@ -57,6 +57,7 @@ services:
       - ./mlruns:/app/mlruns
       - ./data:/app/data
       - ./models:/app/models
+      - ./results:/app/results
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8000/health', timeout=5)"]
@@ -89,6 +90,7 @@ services:
       - "${STREAMLIT_PORT:-8501}:8501"
     environment:
       - PYTHONUNBUFFERED=1
+      - PYTHONPATH=/app
       - API_BASE_URL=http://api:8000
       - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
       - SECRET_KEY=${SECRET_KEY}

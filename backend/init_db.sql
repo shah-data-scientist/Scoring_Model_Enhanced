@@ -29,12 +29,16 @@ CREATE TABLE IF NOT EXISTS predictions (
     sk_id_curr INTEGER NOT NULL,
     probability FLOAT NOT NULL,
     risk_level VARCHAR(50) NOT NULL,
+    prediction INTEGER,
+    shap_values JSON,
+    top_features JSON,
     prediction_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     model_version VARCHAR(50),
     user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
     batch_id INTEGER,
     processing_time_ms FLOAT,
-    metadata JSONB
+    metadata JSONB,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Create batch_uploads table
@@ -120,12 +124,11 @@ CREATE TRIGGER update_users_updated_at
     EXECUTE FUNCTION update_updated_at_column();
 
 -- Insert default admin user (password: admin123 - CHANGE IN PRODUCTION!)
--- Password hash generated with bcrypt for 'admin123'
 INSERT INTO users (username, email, hashed_password, full_name, is_active, is_superuser, role)
 VALUES (
     'admin',
     'admin@creditscore.com',
-    '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewY5GyYzS3MKM5jm',
+    crypt('admin123', gen_salt('bf')),
     'System Administrator',
     TRUE,
     TRUE,
@@ -133,13 +136,13 @@ VALUES (
 )
 ON CONFLICT (username) DO NOTHING;
 
--- Insert default viewer user (password: viewer123 - CHANGE IN PRODUCTION!)
+-- Insert default analyst user (password: analyst123 - CHANGE IN PRODUCTION!)
 INSERT INTO users (username, email, hashed_password, full_name, is_active, is_superuser, role)
 VALUES (
-    'viewer',
-    'viewer@creditscore.com',
-    '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewY5GyYzS3MKM5jm',
-    'Default Viewer',
+    'analyst',
+    'analyst@creditscore.com',
+    crypt('analyst123', gen_salt('bf')),
+    'Default Analyst',
     TRUE,
     FALSE,
     'ANALYST'
@@ -156,5 +159,5 @@ BEGIN
     RAISE NOTICE 'Database initialization completed successfully!';
     RAISE NOTICE 'Default users created:';
     RAISE NOTICE '  - admin (password: admin123) - CHANGE IN PRODUCTION!';
-    RAISE NOTICE '  - viewer (password: viewer123) - CHANGE IN PRODUCTION!';
+    RAISE NOTICE '  - analyst (password: analyst123) - CHANGE IN PRODUCTION!';
 END $$;

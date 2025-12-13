@@ -18,8 +18,7 @@ import streamlit as st
 PROJECT_ROOT = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-# API configuration
-API_BASE_URL = "http://localhost:8000"
+from streamlit_app.config import API_BASE_URL
 
 
 def render_monitoring():

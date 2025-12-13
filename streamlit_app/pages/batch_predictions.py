@@ -26,8 +26,7 @@ sys.path.insert(0, str(PROJECT_ROOT))
 # Configure logging
 logger = logging.getLogger(__name__)
 
-# API configuration
-API_BASE_URL = "http://localhost:8000"
+from streamlit_app.config import API_BASE_URL
 
 # Data directories
 DATA_DIR = PROJECT_ROOT / "data"
@@ -186,12 +185,18 @@ def process_multi_file_batch(files: dict, batch_name: str):
                 result = response.json()
                 display_batch_results(result, batch_name)
             else:
-                error_detail = response.json().get('detail', 'Unknown error')
+                try:
+                    error_detail = response.json().get('detail', 'Unknown error')
+                except Exception:
+                    error_detail = f"HTTP {response.status_code}: {response.text[:500]}"
                 st.error(f"Batch processing failed: {error_detail}")
 
         except requests.exceptions.ConnectionError:
             st.error("Cannot connect to API. Make sure the API server is running.")
             st.info("Start the API with: `uvicorn api.app:app --reload`")
+        except ValueError as e:
+            st.error(f"Invalid API response: {str(e)}")
+            st.info("The API returned a non-JSON response. Check API logs for details.")
         except Exception as e:
             st.error(f"Error: {str(e)}")
 
@@ -457,17 +462,18 @@ def render_download_reports_tab():
 
                 for batch in batches:
                     status_text = "[OK]" if batch['status'] == 'completed' else "[...]" if batch['status'] == 'processing' else "[X]"
+                    batch_name_display = batch.get('batch_name') or f"Batch_{batch.get('id', 'Unknown')}"
 
-                    with st.expander(f"{status_text} {batch['batch_name']} (ID: {batch['id']})", expanded=False):
+                    with st.expander(f"{status_text} {batch_name_display} (ID: {batch['id']})", expanded=False):
                         # Batch details
                         col1, col2, col3 = st.columns(3)
 
                         with col1:
-                            st.write(f"**Status:** {batch['status']}")
-                            st.write(f"**Total Applications:** {batch['total_applications']}")
+                            st.write(f"**Status:** {batch.get('status', 'unknown')}")
+                            st.write(f"**Total Applications:** {batch.get('total_applications', 0)}")
 
                         with col2:
-                            st.write(f"**Processed:** {batch['processed_applications']}")
+                            st.write(f"**Processed:** {batch.get('processed_applications', 0)}")
                             proc_time_val = batch.get('processing_time_seconds') or 0
                             st.write(f"**Processing Time:** {proc_time_val:.2f}s")
 
@@ -486,10 +492,11 @@ def render_download_reports_tab():
                             st.markdown("*Predictions + SHAP values*")
                             excel_data = generate_batch_excel(batch['id'])
                             if excel_data:
+                                batch_filename = batch_name_display.replace(' ', '_')
                                 st.download_button(
                                     label="Download Excel",
                                     data=excel_data,
-                                    file_name=f"{batch['batch_name']}_results.xlsx",
+                                    file_name=f"{batch_filename}_results.xlsx",
                                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                                     key=f"excel_{batch['id']}",
                                     use_container_width=True
@@ -499,12 +506,13 @@ def render_download_reports_tab():
                             st.markdown("##### Detail Analysis")
                             st.markdown("*HTML report with SHAP plots*")
                             # Generate HTML and provide download button
-                            html_report = generate_batch_html_report(batch['id'], batch['batch_name'])
+                            html_report = generate_batch_html_report(batch['id'], batch_name_display)
                             if html_report:
+                                batch_filename = batch_name_display.replace(' ', '_')
                                 st.download_button(
                                     label="Download HTML Report",
                                     data=html_report,
-                                    file_name=f"{batch['batch_name']}_analysis.html",
+                                    file_name=f"{batch_filename}_analysis.html",
                                     mime="text/html",
                                     key=f"html_{batch['id']}",
                                     use_container_width=True
@@ -781,13 +789,13 @@ def generate_detailed_html_report(predictions: list, batch_name: str) -> str:
 
     # Generate collapsible section for each application
     for pred in predictions:
-        sk_id = pred.get('SK_ID_CURR', 'Unknown')
+        sk_id = pred.get('SK_ID_CURR') or pred.get('sk_id_curr') or 'Unknown'
         probability = pred.get('probability', 0)
         risk_level = pred.get('risk_level', 'UNKNOWN')
         shap_values = pred.get('shap_values', {})
 
         # Risk badge class
-        risk_class = f"risk-{risk_level.lower()}"
+        risk_class = f"risk-{risk_level.lower() if risk_level else 'unknown'}"
 
         html += f"""
         <div class="collapsible">

@@ -21,7 +21,7 @@ WORKDIR /app
 COPY --from=builder /app/requirements.txt .
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    curl=7.* \
+    curl \
     libgomp1 \
     && rm -rf /var/lib/apt/lists/* \
     && pip install --no-cache-dir --upgrade pip \

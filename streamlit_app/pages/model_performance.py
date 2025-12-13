@@ -27,9 +27,8 @@ sys.path.insert(0, str(PROJECT_ROOT))
 logger = logging.getLogger(__name__)
 
 from src.config import CONFIG
+from streamlit_app.config import API_BASE_URL
 
-# API Configuration
-API_BASE_URL = "http://localhost:8000"
 METRICS_ENDPOINT = f"{API_BASE_URL}/metrics/precomputed"
 
 
@@ -49,12 +48,14 @@ def fetch_metrics_from_api():
             'thresholds': data['thresholds']
         }
     except requests.exceptions.ConnectionError:
-        return None
+        return {'error': 'connection', 'detail': 'Cannot connect to API server'}
     except requests.exceptions.Timeout:
-        return None
+        return {'error': 'timeout', 'detail': 'API request timed out'}
+    except requests.exceptions.HTTPError as e:
+        return {'error': 'http', 'detail': str(e), 'response': e.response.json() if e.response else None}
     except Exception as e:
         logger.error(f"API fetch error: {e}")
-        return None
+        return {'error': 'unknown', 'detail': str(e)}
 
 
 def plot_confusion_matrix(cm):
@@ -136,9 +137,25 @@ def render_model_performance():
     # Fetch precomputed metrics from API
     api_data = fetch_metrics_from_api()
 
-    if api_data is None:
-        st.error("❌ Cannot connect to API. Please ensure the API server is running.")
-        st.code("poetry run uvicorn api.app:app --reload --port 8000", language="bash")
+    if api_data is None or 'error' in api_data:
+        if api_data and 'error' in api_data:
+            error_type = api_data.get('error')
+            if error_type == 'connection':
+                st.error("❌ Cannot connect to API. Please ensure the API server is running.")
+                st.code("poetry run uvicorn api.app:app --reload --port 8000", language="bash")
+            elif error_type == 'http':
+                response_data = api_data.get('response')
+                if response_data:
+                    detail = response_data.get('detail', 'Unknown error')
+                else:
+                    detail = api_data.get('detail', 'Unknown error')
+                st.warning(f"⚠️ API Error: {detail}")
+                st.info("The metrics endpoint returned an error. This usually means prediction data needs to be generated first. Try running a batch prediction to generate the metrics data.")
+            else:
+                st.error(f"❌ Error: {api_data.get('detail', 'Unknown error')}")
+        else:
+            st.error("❌ Cannot connect to API. Please ensure the API server is running.")
+            st.code("poetry run uvicorn api.app:app --reload --port 8000", language="bash")
         return
 
     # Extract data
