@@ -72,7 +72,7 @@ class User(Base):
     username = Column(String(50), unique=True, nullable=False, index=True)
     email = Column(String(100), unique=True, nullable=False, index=True)
     hashed_password = Column(String(255), nullable=False)
-    role = Column(SQLEnum(UserRole), default=UserRole.ANALYST, nullable=False)
+    role = Column(SQLEnum(UserRole, native_enum=False), default=UserRole.ANALYST, nullable=False)
     is_active = Column(Boolean, default=True, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -97,7 +97,7 @@ class PredictionBatch(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=True)  # nullable for anonymous
     batch_name = Column(String(200), nullable=True)
-    status = Column(SQLEnum(BatchStatus), default=BatchStatus.PENDING, nullable=False)
+    status = Column(SQLEnum(BatchStatus, native_enum=False), default=BatchStatus.PENDING, nullable=False)
 
     # File info
     total_applications = Column(Integer, nullable=True)
