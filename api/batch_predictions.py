@@ -34,6 +34,9 @@ router = APIRouter(prefix="/batch", tags=["Batch Predictions"])
 production_logger = setup_production_logger()
 logger = logging.getLogger(__name__)
 
+# Upload size limit (per file)
+MAX_UPLOAD_SIZE_BYTES = 50 * 1024 * 1024  # 50 MB
+
 # Global preprocessing pipeline
 preprocessing_pipeline = None
 

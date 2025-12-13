@@ -286,16 +286,12 @@ async def get_data_stats_summary(db: Session = Depends(get_db)):
     Get summary statistics about data quality and drift across all batches.
     """
     try:
-        from sqlalchemy import func
         from backend.models import DataDrift, Prediction
-        
-        # Count of drifted features
+
         drifted_count = db.query(DataDrift).filter(DataDrift.is_drifted == True).count()
         total_records = db.query(DataDrift).count()
-        
-        # Prediction statistics
         total_predictions = db.query(Prediction).count()
-        
+
         return {
             "data_drift": {
                 "total_features_checked": total_records,
@@ -306,6 +302,15 @@ async def get_data_stats_summary(db: Session = Depends(get_db)):
                 "total": total_predictions
             }
         }
-    
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+    except Exception:
+        # Gracefully return zeros when DB is not available or models not initialized
+        return {
+            "data_drift": {
+                "total_features_checked": 0,
+                "features_with_drift": 0,
+                "drift_percentage": 0.0
+            },
+            "predictions": {
+                "total": 0
+            }
+        }
