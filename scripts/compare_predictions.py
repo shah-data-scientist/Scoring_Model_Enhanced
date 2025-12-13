@@ -1,10 +1,13 @@
 """Compare training predictions vs batch API predictions."""
 import sys
 from pathlib import Path
+
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-import pandas as pd
 import pickle
+
+import pandas as pd
+
 from api.preprocessing_pipeline import PreprocessingPipeline
 
 # Load all data
@@ -37,7 +40,7 @@ pos_samples = pos_cash[pos_cash['SK_ID_PREV'].isin(prev_ids)]
 cc_samples = cc_balance[cc_balance['SK_ID_PREV'].isin(prev_ids)]
 inst_samples = installments[installments['SK_ID_PREV'].isin(prev_ids)]
 
-print(f'\nAuxiliary data counts:')
+print('\nAuxiliary data counts:')
 print(f'  Bureau: {len(bureau_samples)}')
 print(f'  Bureau Balance: {len(bureau_balance_samples)}')
 print(f'  Previous App: {len(prev_samples)}')

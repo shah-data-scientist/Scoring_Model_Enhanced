@@ -1,11 +1,11 @@
-"""
-Configuration Loader
+"""Configuration Loader
 
 Loads project configuration from config.yaml.
 """
-import yaml
 from pathlib import Path
-import os
+
+import yaml
+
 
 def load_config(config_path="config.yaml"):
     """Load configuration from YAML file."""
@@ -13,7 +13,7 @@ def load_config(config_path="config.yaml"):
     # src/config.py -> parent = src -> parent = Project Root
     project_root = Path(__file__).resolve().parent.parent
     path = project_root / config_path
-    
+
     if not path.exists():
         # Fallback to CWD
         path = Path.cwd() / config_path
@@ -21,13 +21,13 @@ def load_config(config_path="config.yaml"):
     if not path.exists():
         raise FileNotFoundError(f"Config file not found. Searched at:\n1. {project_root / config_path}\n2. {Path.cwd() / config_path}")
 
-    with open(path, "r") as f:
+    with open(path) as f:
         config = yaml.safe_load(f)
-        
+
     return config
 
 # Singleton config object
-# We remove the try-except block that masks errors. 
+# We remove the try-except block that masks errors.
 # The application requires configuration to run; strictly failing is better than silently failing.
 CONFIG = load_config()
 
@@ -71,8 +71,7 @@ RESULTS_DIR = PROJECT_ROOT / CONFIG.get('paths', {}).get('results', 'results')
 MLRUNS_DIR = PROJECT_ROOT / CONFIG.get('paths', {}).get('mlruns', 'mlruns')
 
 def get_baseline_tags(model_name: str, **kwargs) -> dict:
-    """
-    Get standardized tags for baseline experiments.
+    """Get standardized tags for baseline experiments.
 
     Args:
         model_name: Name of the model
@@ -80,6 +79,7 @@ def get_baseline_tags(model_name: str, **kwargs) -> dict:
 
     Returns:
         Dictionary of tags
+
     """
     tags = {
         'stage': 'baseline',
@@ -90,8 +90,7 @@ def get_baseline_tags(model_name: str, **kwargs) -> dict:
     return tags
 
 def get_optimization_tags(model_name: str, optimization_type: str = 'optuna', **kwargs) -> dict:
-    """
-    Get standardized tags for optimization experiments.
+    """Get standardized tags for optimization experiments.
 
     Args:
         model_name: Name of the model
@@ -100,6 +99,7 @@ def get_optimization_tags(model_name: str, optimization_type: str = 'optuna', **
 
     Returns:
         Dictionary of tags
+
     """
     tags = {
         'stage': 'optimization',
@@ -111,8 +111,7 @@ def get_optimization_tags(model_name: str, optimization_type: str = 'optuna', **
     return tags
 
 def get_production_tags(model_name: str, version: str = '1.0', **kwargs) -> dict:
-    """
-    Get standardized tags for production models.
+    """Get standardized tags for production models.
 
     Args:
         model_name: Name of the model
@@ -121,6 +120,7 @@ def get_production_tags(model_name: str, version: str = '1.0', **kwargs) -> dict
 
     Returns:
         Dictionary of tags
+
     """
     tags = {
         'stage': 'production',
@@ -132,8 +132,7 @@ def get_production_tags(model_name: str, version: str = '1.0', **kwargs) -> dict
     return tags
 
 def get_artifact_path(model_name: str, artifact_type: str) -> str:
-    """
-    Get standardized artifact path.
+    """Get standardized artifact path.
 
     Args:
         model_name: Name of the model
@@ -141,5 +140,6 @@ def get_artifact_path(model_name: str, artifact_type: str) -> str:
 
     Returns:
         Standardized artifact path string
+
     """
     return f"{artifact_type}/{model_name}_{artifact_type}"

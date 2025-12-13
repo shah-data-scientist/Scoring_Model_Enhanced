@@ -1,5 +1,4 @@
-"""
-Quick Test: Advanced Features vs Baseline
+"""Quick Test: Advanced Features vs Baseline
 Target: 0.82 ROC-AUC
 
 This script quickly compares:
@@ -7,13 +6,13 @@ This script quickly compares:
 2. Advanced Features (~300+ features) - Target: 0.82 ROC-AUC
 """
 import sys
-from pathlib import Path
-import pandas as pd
-import numpy as np
-from sklearn.model_selection import cross_val_score, StratifiedKFold
-from sklearn.metrics import roc_auc_score
-from lightgbm import LGBMClassifier
 import time
+from pathlib import Path
+
+import numpy as np
+import pandas as pd
+from lightgbm import LGBMClassifier
+from sklearn.metrics import roc_auc_score
 
 sys.path.append(str(Path(__file__).parent.parent))
 
@@ -65,7 +64,7 @@ baseline_time = time.time() - start
 y_pred_proba = model.predict_proba(X_val)[:, 1]
 baseline_roc = roc_auc_score(y_val, y_pred_proba)
 
-print(f"\nBaseline Performance:")
+print("\nBaseline Performance:")
 print(f"  ROC-AUC: {baseline_roc:.4f}")
 print(f"  Training time: {baseline_time:.2f}s")
 
@@ -98,7 +97,7 @@ advanced_time = time.time() - start
 y_pred_proba_adv = model.predict_proba(X_val_advanced)[:, 1]
 advanced_roc = roc_auc_score(y_val, y_pred_proba_adv)
 
-print(f"\nAdvanced Features Performance:")
+print("\nAdvanced Features Performance:")
 print(f"  ROC-AUC: {advanced_roc:.4f}")
 print(f"  Training time: {advanced_time:.2f}s")
 
@@ -108,15 +107,15 @@ print("="*80)
 print(f"\nBaseline ROC-AUC:     {baseline_roc:.4f}")
 print(f"Advanced ROC-AUC:     {advanced_roc:.4f}")
 print(f"Improvement:          {advanced_roc - baseline_roc:.4f} ({(advanced_roc - baseline_roc)/baseline_roc*100:.1f}%)")
-print(f"\nTarget:               0.8200")
+print("\nTarget:               0.8200")
 print(f"Gap to target:        {0.82 - advanced_roc:.4f}")
 
 if advanced_roc >= 0.82:
-    print(f"\nSUCCESS! Target of 0.82 ROC-AUC achieved!")
+    print("\nSUCCESS! Target of 0.82 ROC-AUC achieved!")
 elif advanced_roc >= 0.80:
-    print(f"\nCLOSE! With hyperparameter tuning, 0.82 is achievable.")
+    print("\nCLOSE! With hyperparameter tuning, 0.82 is achievable.")
 else:
-    print(f"\nNEXT STEPS: Try hyperparameter optimization and feature selection.")
+    print("\nNEXT STEPS: Try hyperparameter optimization and feature selection.")
 
 print("\n" + "="*80)
 print("TOP 20 MOST IMPORTANT FEATURES")

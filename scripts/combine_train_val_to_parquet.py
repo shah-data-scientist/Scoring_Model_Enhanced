@@ -1,7 +1,8 @@
 """Combine X_train.csv and X_val.csv (the actual training data) and convert to Parquet."""
-import pandas as pd
 import time
 from pathlib import Path
+
+import pandas as pd
 
 PROJECT_ROOT = Path(__file__).parent.parent
 
@@ -60,10 +61,10 @@ duplicates = X_combined['SK_ID_CURR'].duplicated().sum()
 if duplicates > 0:
     print(f"  [WARNING] Found {duplicates} duplicate SK_ID_CURR values!")
 else:
-    print(f"  [OK] No duplicate SK_ID_CURR values")
+    print("  [OK] No duplicate SK_ID_CURR values")
 
 # Save to Parquet
-print(f"\n[6/6] Saving to Parquet...")
+print("\n[6/6] Saving to Parquet...")
 start = time.time()
 X_combined.to_parquet(parquet_path, index=False, compression='snappy')
 parquet_time = time.time() - start
@@ -78,6 +79,7 @@ print(f"  Loaded {len(test_df):,} rows × {len(test_df.columns)} columns in {loa
 
 # File size comparison
 import os
+
 train_size = os.path.getsize(train_csv) / (1024**2)
 val_size = os.path.getsize(val_csv) / (1024**2)
 parquet_size = os.path.getsize(parquet_path) / (1024**2)

@@ -1,5 +1,4 @@
-"""
-Check notebooks/mlruns database contents
+"""Check notebooks/mlruns database contents
 """
 import sqlite3
 from pathlib import Path

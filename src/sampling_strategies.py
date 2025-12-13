@@ -1,21 +1,19 @@
-"""
-Sampling strategies for handling class imbalance in credit scoring.
+"""Sampling strategies for handling class imbalance in credit scoring.
 
 Provides different methods to handle the imbalanced target variable:
 - Balanced class weights (no resampling)
 - SMOTE (oversampling)
 - Random undersampling
 """
-import pandas as pd
+
 import numpy as np
-from typing import Tuple, Dict, Any
+import pandas as pd
 from imblearn.over_sampling import SMOTE
 from imblearn.under_sampling import RandomUnderSampler
 
 
-def apply_balanced_weights(X: pd.DataFrame, y: pd.Series) -> Tuple[pd.DataFrame, pd.Series, Dict]:
-    """
-    No resampling - just return data as-is.
+def apply_balanced_weights(X: pd.DataFrame, y: pd.Series) -> tuple[pd.DataFrame, pd.Series, dict]:
+    """No resampling - just return data as-is.
     Model will use class_weight='balanced' parameter.
 
     Args:
@@ -24,6 +22,7 @@ def apply_balanced_weights(X: pd.DataFrame, y: pd.Series) -> Tuple[pd.DataFrame,
 
     Returns:
         Tuple of (X, y, metadata dict)
+
     """
     metadata = {
         'method': 'balanced',
@@ -34,7 +33,7 @@ def apply_balanced_weights(X: pd.DataFrame, y: pd.Series) -> Tuple[pd.DataFrame,
         'imbalance_ratio': (y == 0).sum() / (y == 1).sum()
     }
 
-    print(f"Balanced weights strategy:")
+    print("Balanced weights strategy:")
     print(f"  Total samples: {len(X):,}")
     print(f"  Class 0 (majority): {metadata['majority_class_count']:,}")
     print(f"  Class 1 (minority): {metadata['minority_class_count']:,}")
@@ -46,9 +45,8 @@ def apply_balanced_weights(X: pd.DataFrame, y: pd.Series) -> Tuple[pd.DataFrame,
 def apply_smote(X: pd.DataFrame, y: pd.Series,
                 random_state: int = 42,
                 sampling_strategy: str = 'auto',
-                k_neighbors: int = 5) -> Tuple[pd.DataFrame, pd.Series, Dict]:
-    """
-    Apply SMOTE (Synthetic Minority Over-sampling Technique).
+                k_neighbors: int = 5) -> tuple[pd.DataFrame, pd.Series, dict]:
+    """Apply SMOTE (Synthetic Minority Over-sampling Technique).
 
     Args:
         X: Feature DataFrame
@@ -59,8 +57,9 @@ def apply_smote(X: pd.DataFrame, y: pd.Series,
 
     Returns:
         Tuple of (X_resampled, y_resampled, metadata dict)
+
     """
-    print(f"Applying SMOTE oversampling...")
+    print("Applying SMOTE oversampling...")
     print(f"  Original samples: {len(X):,}")
     print(f"  Original class 0: {(y == 0).sum():,}")
     print(f"  Original class 1: {(y == 1).sum():,}")
@@ -102,9 +101,8 @@ def apply_smote(X: pd.DataFrame, y: pd.Series,
 
 def apply_undersampling(X: pd.DataFrame, y: pd.Series,
                        random_state: int = 42,
-                       sampling_strategy: str = 'auto') -> Tuple[pd.DataFrame, pd.Series, Dict]:
-    """
-    Apply random undersampling to majority class.
+                       sampling_strategy: str = 'auto') -> tuple[pd.DataFrame, pd.Series, dict]:
+    """Apply random undersampling to majority class.
 
     Args:
         X: Feature DataFrame
@@ -114,8 +112,9 @@ def apply_undersampling(X: pd.DataFrame, y: pd.Series,
 
     Returns:
         Tuple of (X_resampled, y_resampled, metadata dict)
+
     """
-    print(f"Applying random undersampling...")
+    print("Applying random undersampling...")
     print(f"  Original samples: {len(X):,}")
     print(f"  Original class 0: {(y == 0).sum():,}")
     print(f"  Original class 1: {(y == 1).sum():,}")
@@ -154,12 +153,12 @@ def apply_undersampling(X: pd.DataFrame, y: pd.Series,
 
 from imblearn.pipeline import Pipeline
 
+
 def apply_smote_undersample(X: pd.DataFrame, y: pd.Series,
                            random_state: int = 42,
-                           over_strategy: float = 0.1, 
-                           under_strategy: float = 0.5) -> Tuple[pd.DataFrame, pd.Series, Dict]:
-    """
-    Apply SMOTE followed by Random Undersampling.
+                           over_strategy: float = 0.1,
+                           under_strategy: float = 0.5) -> tuple[pd.DataFrame, pd.Series, dict]:
+    """Apply SMOTE followed by Random Undersampling.
     
     Strategy:
     1. SMOTE oversamples minority class to 'over_strategy' ratio of majority class.
@@ -174,8 +173,9 @@ def apply_smote_undersample(X: pd.DataFrame, y: pd.Series,
 
     Returns:
         Tuple of (X_resampled, y_resampled, metadata dict)
+
     """
-    print(f"Applying SMOTE + Undersampling...")
+    print("Applying SMOTE + Undersampling...")
     print(f"  Original samples: {len(X):,}")
     print(f"  Original class 0: {(y == 0).sum():,}")
     print(f"  Original class 1: {(y == 1).sum():,}")
@@ -183,14 +183,14 @@ def apply_smote_undersample(X: pd.DataFrame, y: pd.Series,
     # Pipeline: SMOTE -> RandomUnderSampler
     # Note: sampling_strategy in SMOTE controls the ratio of minority to majority AFTER resampling
     # We want to first boost minority (e.g. to 0.3), then trim majority to match (e.g. to 0.5)
-    
-    # Default behavior if not specified: 
+
+    # Default behavior if not specified:
     # SMOTE to 0.5 (minority becomes half of majority)
     # Then Undersample to 1.0 (majority becomes equal to minority)
-    
+
     over = SMOTE(sampling_strategy=0.5, random_state=random_state)
     under = RandomUnderSampler(sampling_strategy=1.0, random_state=random_state)
-    
+
     steps = [('o', over), ('u', under)]
     pipeline = Pipeline(steps=steps)
 
@@ -218,9 +218,8 @@ def apply_smote_undersample(X: pd.DataFrame, y: pd.Series,
 
 
 def get_sampling_strategy(strategy_name: str, X: pd.DataFrame, y: pd.Series,
-                          random_state: int = 42) -> Tuple[pd.DataFrame, pd.Series, Dict]:
-    """
-    Apply the specified sampling strategy.
+                          random_state: int = 42) -> tuple[pd.DataFrame, pd.Series, dict]:
+    """Apply the specified sampling strategy.
 
     Args:
         strategy_name: 'balanced', 'smote', 'undersample', or 'smote_undersample'
@@ -233,20 +232,20 @@ def get_sampling_strategy(strategy_name: str, X: pd.DataFrame, y: pd.Series,
 
     Raises:
         ValueError: If strategy_name is not recognized
+
     """
     strategy_name = strategy_name.lower()
 
     if strategy_name == 'balanced':
         return apply_balanced_weights(X, y)
-    elif strategy_name == 'smote':
+    if strategy_name == 'smote':
         return apply_smote(X, y, random_state=random_state)
-    elif strategy_name == 'undersample':
+    if strategy_name == 'undersample':
         return apply_undersampling(X, y, random_state=random_state)
-    elif strategy_name == 'smote_undersample':
+    if strategy_name == 'smote_undersample':
         return apply_smote_undersample(X, y, random_state=random_state)
-    else:
-        raise ValueError(f"Unknown sampling strategy: {strategy_name}. "
-                        f"Choose from: balanced, smote, undersample, smote_undersample")
+    raise ValueError(f"Unknown sampling strategy: {strategy_name}. "
+                    f"Choose from: balanced, smote, undersample, smote_undersample")
 
 
 # Strategy descriptions for documentation
@@ -312,7 +311,7 @@ if __name__ == "__main__":
     )
     y = pd.Series(np.random.choice([0, 1], size=n_samples, p=[0.9, 0.1]), name='target')
 
-    print(f"\nOriginal dataset:")
+    print("\nOriginal dataset:")
     print(f"  Samples: {len(X):,}")
     print(f"  Class 0: {(y == 0).sum():,}")
     print(f"  Class 1: {(y == 1).sum():,}")
@@ -326,7 +325,7 @@ if __name__ == "__main__":
 
         X_resampled, y_resampled, metadata = get_sampling_strategy(strategy, X, y)
 
-        print(f"\nResult:")
+        print("\nResult:")
         print(f"  Samples: {len(X_resampled):,}")
         print(f"  Class 0: {(y_resampled == 0).sum():,}")
         print(f"  Class 1: {(y_resampled == 1).sum():,}")

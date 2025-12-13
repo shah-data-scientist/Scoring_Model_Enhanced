@@ -1,34 +1,34 @@
-"""
-Model Training Utilities
+"""Model Training Utilities
 
 This module contains functions for training, evaluating, and logging models with MLflow.
 """
 
 import time
+from pathlib import Path
+from typing import Any
+
+import matplotlib.pyplot as plt
 import mlflow
 import mlflow.sklearn
-import matplotlib.pyplot as plt
 import pandas as pd
-from pathlib import Path
-from typing import Dict, Any, Tuple
 
 from src.evaluation import (
     evaluate_model,
-    plot_roc_curve,
-    plot_precision_recall_curve,
     plot_confusion_matrix,
-    plot_feature_importance
+    plot_feature_importance,
+    plot_precision_recall_curve,
+    plot_roc_curve,
 )
 
-def train_and_evaluate_model(model: Any, 
-                           model_name: str, 
-                           params: Dict[str, Any], 
-                           X_train: pd.DataFrame, 
-                           y_train: pd.Series, 
-                           X_val: pd.DataFrame, 
-                           y_val: pd.Series) -> Tuple[Dict[str, float], Any]:
-    """
-    Train a model and log everything to MLflow.
+
+def train_and_evaluate_model(model: Any,
+                           model_name: str,
+                           params: dict[str, Any],
+                           X_train: pd.DataFrame,
+                           y_train: pd.Series,
+                           X_val: pd.DataFrame,
+                           y_val: pd.Series) -> tuple[dict[str, float], Any]:
+    """Train a model and log everything to MLflow.
 
     Educational Note:
     -----------------
@@ -39,8 +39,8 @@ def train_and_evaluate_model(model: Any,
     4. Log parameters, metrics, model, and artifacts
     5. Return results for comparison
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     model : estimator
         The initialized model (sklearn interface)
     model_name : str
@@ -52,10 +52,11 @@ def train_and_evaluate_model(model: Any,
     X_val, y_val : 
         Validation data
 
-    Returns:
-    --------
+    Returns
+    -------
     Tuple[Dict, Any]
         Metrics dictionary and trained model
+
     """
     print("="*80)
     print(f"Training: {model_name}")
@@ -82,7 +83,7 @@ def train_and_evaluate_model(model: Any,
             y_pred_proba = model.predict_proba(X_val)[:, 1]
         else:
             # For models without predict_proba (e.g. some SVMs), use decision function or just 0/1
-            y_pred_proba = y_pred 
+            y_pred_proba = y_pred
 
         # Evaluate
         metrics = evaluate_model(y_val, y_pred, y_pred_proba, model_name)
@@ -126,12 +127,12 @@ def train_and_evaluate_model(model: Any,
             fig.savefig(fi_path, dpi=100, bbox_inches='tight')
             mlflow.log_artifact(fi_path)
             plt.close()
-            print(f"[OK] Feature importance plot saved")
+            print("[OK] Feature importance plot saved")
 
         # Log model
         mlflow.sklearn.log_model(model, "model")
 
-        print(f"[OK] All metrics and artifacts logged to MLflow")
+        print("[OK] All metrics and artifacts logged to MLflow")
         print(f"Run ID: {run.info.run_id}")
 
         return metrics, model

@@ -1,19 +1,17 @@
-"""
-Polynomial feature engineering for credit scoring model.
+"""Polynomial feature engineering for credit scoring model.
 
 This module creates polynomial features (interactions and squares) for
 selected numeric features to capture non-linear relationships.
 """
-import pandas as pd
+
 import numpy as np
+import pandas as pd
 from sklearn.preprocessing import PolynomialFeatures
-from typing import List, Tuple
 
 
 def select_features_for_polynomial(df: pd.DataFrame,
-                                   max_features: int = 15) -> List[str]:
-    """
-    Select the most relevant numeric features for polynomial expansion.
+                                   max_features: int = 15) -> list[str]:
+    """Select the most relevant numeric features for polynomial expansion.
 
     Args:
         df: DataFrame with features
@@ -21,6 +19,7 @@ def select_features_for_polynomial(df: pd.DataFrame,
 
     Returns:
         List of feature names selected for polynomial expansion
+
     """
     # Priority features based on domain knowledge
     priority_features = [
@@ -68,11 +67,10 @@ def select_features_for_polynomial(df: pd.DataFrame,
 
 
 def create_polynomial_features(df: pd.DataFrame,
-                               feature_list: List[str] = None,
+                               feature_list: list[str] = None,
                                degree: int = 2,
-                               interaction_only: bool = False) -> Tuple[pd.DataFrame, List[str]]:
-    """
-    Create polynomial features for selected numeric columns.
+                               interaction_only: bool = False) -> tuple[pd.DataFrame, list[str]]:
+    """Create polynomial features for selected numeric columns.
 
     Args:
         df: Input DataFrame
@@ -82,6 +80,7 @@ def create_polynomial_features(df: pd.DataFrame,
 
     Returns:
         Tuple of (DataFrame with polynomial features, list of new feature names)
+
     """
     print("Creating polynomial features...")
 
@@ -156,9 +155,8 @@ def create_polynomial_features(df: pd.DataFrame,
 
 
 def create_interaction_features(df: pd.DataFrame,
-                                feature_pairs: List[Tuple[str, str]]) -> pd.DataFrame:
-    """
-    Create specific interaction features between feature pairs.
+                                feature_pairs: list[tuple[str, str]]) -> pd.DataFrame:
+    """Create specific interaction features between feature pairs.
 
     Args:
         df: Input DataFrame
@@ -166,6 +164,7 @@ def create_interaction_features(df: pd.DataFrame,
 
     Returns:
         DataFrame with interaction features added
+
     """
     result_df = df.copy()
     new_features = []
@@ -216,6 +215,6 @@ if __name__ == "__main__":
 
     print(f"After polynomial expansion: {result_df.shape[1]}")
     print(f"New polynomial features: {len(new_features)}")
-    print(f"\nSample new features:")
+    print("\nSample new features:")
     for feat in new_features[:5]:
         print(f"  - {feat}")

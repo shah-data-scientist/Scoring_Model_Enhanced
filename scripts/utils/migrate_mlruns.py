@@ -1,16 +1,14 @@
-"""
-Migrate MLflow runs from notebooks/mlruns to root mlruns
+"""Migrate MLflow runs from notebooks/mlruns to root mlruns
 Following industry best practice: mlruns should be at PROJECT_ROOT
 """
 import shutil
-from pathlib import Path
 import sys
+from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).parent
 
 def migrate_mlruns():
     """Migrate mlruns from notebooks to root."""
-
     # Paths
     root_mlruns = PROJECT_ROOT / 'mlruns'
     notebooks_mlruns = PROJECT_ROOT / 'notebooks' / 'mlruns'
@@ -41,7 +39,7 @@ def migrate_mlruns():
     if not notebooks_mlruns.exists():
         print(f'  ERROR: Source not found: {notebooks_mlruns}')
         sys.exit(1)
-    print(f'  SUCCESS: Source exists')
+    print('  SUCCESS: Source exists')
 
     # Get source size
     source_size = sum(f.stat().st_size for f in notebooks_mlruns.rglob('*') if f.is_file()) / (1024 * 1024)

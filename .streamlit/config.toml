@@ -1,0 +1,15 @@
+[server]
+# Fixed port - prevents Streamlit from trying 8502, 8503, etc.
+port = 8501
+
+# Performance optimizations
+# Note: enableCORS cannot be false when enableXsrfProtection is true
+enableXsrfProtection = true
+
+[browser]
+# Automatically open browser on start
+gatherUsageStats = false
+
+[runner]
+# Faster reruns
+fastReruns = true

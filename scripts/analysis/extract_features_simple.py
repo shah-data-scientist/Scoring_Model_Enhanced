@@ -1,14 +1,14 @@
-"""
-Simple Feature Importance Extraction.
+"""Simple Feature Importance Extraction.
 
 Loads model directly from file and extracts feature importance.
 """
-import joblib
-import pandas as pd
-import numpy as np
 import json
-from pathlib import Path
 import sys
+from pathlib import Path
+
+import joblib
+import numpy as np
+import pandas as pd
 
 # Add project root to Python path
 PROJECT_ROOT = Path(__file__).parent.parent.parent
@@ -68,8 +68,7 @@ def load_feature_names(model):
         df = pd.read_csv(feature_names_file)
         if 'feature' in df.columns:
             return df['feature'].tolist()
-        else:
-            return df.iloc[:, 0].tolist()
+        return df.iloc[:, 0].tolist()
 
     # Last resort: load from X_train columns
     x_train_file = PROJECT_ROOT / "data" / "processed" / "X_train.csv"
@@ -108,7 +107,7 @@ def get_feature_importance(model, feature_names):
     importance_df['cumulative_importance'] = importance_df['importance'].cumsum() / total_importance
 
     print(f"  Total features: {len(importance_df)}")
-    print(f"\n  Top 10 features:")
+    print("\n  Top 10 features:")
     for idx, row in importance_df.head(10).iterrows():
         print(f"    {row['feature']:50s} {row['importance']:10.6f} ({row['cumulative_importance']*100:5.2f}%)")
 
@@ -240,7 +239,7 @@ def main():
         print("=" * 80)
         print(f"Total features: {len(all_features)}")
         print(f"Critical features: {len(critical_features)}")
-        print(f"\nTop 20 most important features:")
+        print("\nTop 20 most important features:")
         for i, feat in enumerate(critical_features[:20], 1):
             imp_row = importance_df[importance_df['feature'] == feat].iloc[0]
             print(f"  {i:2d}. {feat:50s} {imp_row['importance']:.6f} ({imp_row['cumulative_importance']*100:5.2f}%)")

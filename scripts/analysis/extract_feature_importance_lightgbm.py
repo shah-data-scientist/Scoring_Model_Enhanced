@@ -1,5 +1,4 @@
-"""
-Extract feature importance from the production LightGBM model (189 features)
+"""Extract feature importance from the production LightGBM model (189 features)
 and map to raw CSV features.
 
 This script:
@@ -10,20 +9,21 @@ This script:
 5. Generates configuration files for API validation
 """
 
-import pickle
 import json
-import pandas as pd
-import numpy as np
-from pathlib import Path
+import pickle
 import sys
 from collections import defaultdict
+from pathlib import Path
+
+import pandas as pd
 
 # Setup path
 PROJECT_ROOT = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from src.config import MLFLOW_TRACKING_URI
 import mlflow
+
+from src.config import MLFLOW_TRACKING_URI
 
 # Paths
 PRODUCTION_MODEL_PATH = PROJECT_ROOT / "models" / "production_model.pkl"
@@ -44,14 +44,14 @@ def load_production_model():
     try:
         mlflow.set_tracking_uri(str(MLFLOW_TRACKING_URI))
         model = mlflow.lightgbm.load_model("models:/credit_scoring_production_model/Production")
-        print(f"[OK] Loaded model from MLflow Registry")
+        print("[OK] Loaded model from MLflow Registry")
     except Exception as e:
         print(f"[INFO] Could not load from MLflow ({e}), loading from file...")
         with open(PRODUCTION_MODEL_PATH, 'rb') as f:
             model = pickle.load(f)
         print(f"[OK] Loaded model from: {PRODUCTION_MODEL_PATH.relative_to(PROJECT_ROOT)}")
 
-    print(f"\nModel Information:")
+    print("\nModel Information:")
     print(f"  Type: {type(model).__name__}")
     print(f"  Number of features: {model.n_features_in_}")
     print(f"  Number of classes: {model.n_classes_}")
@@ -69,7 +69,7 @@ def load_feature_names():
         feature_names = df['feature'].tolist()
         print(f"[OK] Loaded {len(feature_names)} feature names from: {FEATURE_NAMES_PATH.relative_to(PROJECT_ROOT)}")
     else:
-        print(f"[WARNING] Feature names file not found, using model's feature_names_in_")
+        print("[WARNING] Feature names file not found, using model's feature_names_in_")
         if hasattr(model, 'feature_names_in_'):
             feature_names = model.feature_names_in_.tolist()
         else:
@@ -103,7 +103,7 @@ def extract_feature_importance(model, feature_names):
     importance_df['cumulative_importance'] = importance_df['cumulative_importance'] / total_importance
 
     print(f"[OK] Extracted importance for {len(importance_df)} features")
-    print(f"\nTop 10 Most Important Features:")
+    print("\nTop 10 Most Important Features:")
     for i, row in importance_df.head(10).iterrows():
         print(f"  {i+1:2d}. {row['feature']:50s} {row['importance']:8.4f} ({row['cumulative_importance']*100:5.1f}%)")
 
@@ -140,8 +140,7 @@ def identify_critical_features(importance_df, threshold=0.85):
     return critical_features
 
 def map_to_raw_features(model_feature):
-    """
-    Map a single model feature to its source raw CSV file(s) and column(s).
+    """Map a single model feature to its source raw CSV file(s) and column(s).
 
     Returns: dict with structure {file: [columns]}
     """
@@ -188,13 +187,7 @@ def map_to_raw_features(model_feature):
     # ========================================
     # Domain/Engineered features
     # ========================================
-    elif 'EXT_SOURCE_MEAN' in model_feature or 'EXT_SOURCE_WEIGHTED' in model_feature:
-        sources['application.csv'].extend(['EXT_SOURCE_1', 'EXT_SOURCE_2', 'EXT_SOURCE_3'])
-
-    elif 'EXT_SOURCE_MIN' in model_feature:
-        sources['application.csv'].extend(['EXT_SOURCE_1', 'EXT_SOURCE_2', 'EXT_SOURCE_3'])
-
-    elif 'EXT_SOURCE_MAX' in model_feature:
+    elif 'EXT_SOURCE_MEAN' in model_feature or 'EXT_SOURCE_WEIGHTED' in model_feature or 'EXT_SOURCE_MIN' in model_feature or 'EXT_SOURCE_MAX' in model_feature:
         sources['application.csv'].extend(['EXT_SOURCE_1', 'EXT_SOURCE_2', 'EXT_SOURCE_3'])
 
     elif 'CREDIT_TO_GOODS_RATIO' in model_feature or 'CREDIT_GOODS_RATIO' in model_feature:
@@ -320,7 +313,7 @@ def analyze_raw_feature_sources(critical_features):
 
     print(f"[OK] Mapped {len(critical_features)} model features to raw features")
     print(f"  Identified {len(raw_importance_list)} unique raw features")
-    print(f"\nTop 15 Most Important Raw Features:")
+    print("\nTop 15 Most Important Raw Features:")
     for i, feat in enumerate(raw_importance_list[:15], 1):
         print(f"  {i:2d}. {feat['file_column']:50s} {feat['importance']:8.4f}")
 
@@ -353,7 +346,7 @@ def identify_critical_raw_features(raw_importance_list, threshold=0.85):
 
     print(f"[OK] Identified {len(critical_raw)} critical raw features")
     print(f"  Coverage: {critical_raw[-1]['cumulative_importance']*100:.2f}% of importance")
-    print(f"\nBreakdown by file:")
+    print("\nBreakdown by file:")
     for file, columns in sorted(by_file.items()):
         unique_cols = list(set(columns))
         print(f"  {file:30s} {len(unique_cols):3d} features")
@@ -445,10 +438,10 @@ def main():
         print(f"  - {CONFIG_DIR.relative_to(PROJECT_ROOT)}/all_raw_features.json")
         print(f"  - {CONFIG_DIR.relative_to(PROJECT_ROOT)}/critical_raw_features.json")
         print(f"  - {CONFIG_DIR.relative_to(PROJECT_ROOT)}/raw_feature_importance.json")
-        print(f"\nFiles Required for Predictions:")
+        print("\nFiles Required for Predictions:")
         for file in sorted(critical_by_file.keys()):
             print(f"  - {file}")
-        print(f"\nReady to proceed with Phase 2: API Reconstruction")
+        print("\nReady to proceed with Phase 2: API Reconstruction")
 
     except Exception as e:
         print(f"\n{'='*80}")

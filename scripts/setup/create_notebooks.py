@@ -1,15 +1,14 @@
-"""
-Script to create comprehensive educational notebooks for the Credit Scoring project.
+"""Script to create comprehensive educational notebooks for the Credit Scoring project.
 This ensures consistency and completeness across all notebooks.
 """
 
-import nbformat as nbf
-import os
 from pathlib import Path
+
+import nbformat as nbf
+
 
 def create_eda_notebook():
     """Create a comprehensive EDA notebook with educational content."""
-
     nb = nbf.v4.new_notebook()
 
     cells = []

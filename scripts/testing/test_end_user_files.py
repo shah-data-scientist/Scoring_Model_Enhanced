@@ -1,8 +1,8 @@
 """Test batch prediction API with end_user_tests files."""
-import requests
 from pathlib import Path
-import json
+
 import pandas as pd
+import requests
 
 # Configuration
 PROJECT_ROOT = Path(__file__).parent.parent.parent
@@ -102,7 +102,7 @@ try:
 
         # Probability statistics
         probabilities = [p['probability'] for p in predictions]
-        print(f"\nProbability Statistics:")
+        print("\nProbability Statistics:")
         print(f"  Min:    {min(probabilities):.4f}")
         print(f"  Max:    {max(probabilities):.4f}")
         print(f"  Mean:   {sum(probabilities)/len(probabilities):.4f}")

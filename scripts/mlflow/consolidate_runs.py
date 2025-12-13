@@ -1,15 +1,14 @@
-"""
-MLflow Runs Consolidation Script
+"""MLflow Runs Consolidation Script
 
 Audits and consolidates MLflow runs from multiple locations following best practices.
 
 Best Practice: MLflow runs should be stored at PROJECT_ROOT/mlruns/
 This is the industry standard and what MLflow documentation recommends.
 """
+import sqlite3
 import sys
 from pathlib import Path
-import shutil
-import sqlite3
+
 import mlflow
 from mlflow.tracking import MlflowClient
 
@@ -164,14 +163,14 @@ def review_run_quality(location):
         if unnamed_runs:
             print(f"   ⚠️  {len(unnamed_runs)} runs without names")
         else:
-            print(f"   ✓ All runs have names")
+            print("   ✓ All runs have names")
 
         # Check metrics
         runs_without_metrics = [r for r in runs if not r.data.metrics]
         if runs_without_metrics:
             print(f"   ⚠️  {len(runs_without_metrics)} runs without metrics")
         else:
-            print(f"   ✓ All runs have metrics")
+            print("   ✓ All runs have metrics")
 
         # Check for key metrics
         runs_with_roc_auc = [r for r in runs if 'roc_auc' in r.data.metrics or 'mean_roc_auc' in r.data.metrics]
@@ -180,7 +179,7 @@ def review_run_quality(location):
         # Check for training metrics (overfitting detection)
         runs_with_train_metrics = [r for r in runs if any('train' in k for k in r.data.metrics.keys())]
         if not runs_with_train_metrics:
-            print(f"   ⚠️  No runs have training metrics (can't detect overfitting)")
+            print("   ⚠️  No runs have training metrics (can't detect overfitting)")
         else:
             print(f"   ✓ {len(runs_with_train_metrics)}/{len(runs)} runs have training metrics")
 
@@ -227,7 +226,7 @@ def main():
     print("\n3. CLEANUP ACTIONS:")
     if notebooks_info and notebooks_info.get('has_db', True):
         print("   📦 Archive notebooks/mlruns/ (runs already migrated)")
-        print(f"      Command: mv notebooks/mlruns notebooks/mlruns_archived")
+        print("      Command: mv notebooks/mlruns notebooks/mlruns_archived")
     else:
         print("   ✓ No cleanup needed")
 

@@ -1,17 +1,17 @@
-"""
-Database Configuration
+"""Database Configuration
 ======================
 Database connection settings and session management.
 """
 
 import os
-from pathlib import Path
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, Session
-from sqlalchemy.pool import StaticPool
+from collections.abc import Generator
 from contextlib import contextmanager
-from typing import Generator
+from pathlib import Path
+
 from dotenv import load_dotenv
+from sqlalchemy import create_engine
+from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.pool import StaticPool
 
 # Load environment variables
 load_dotenv()
@@ -21,8 +21,7 @@ PROJECT_ROOT = Path(__file__).parent.parent
 
 
 def get_database_url() -> str:
-    """
-    Get database URL from environment or use default.
+    """Get database URL from environment or use default.
     
     Priority:
     1. DATABASE_URL environment variable (for Docker/Production)
@@ -31,19 +30,19 @@ def get_database_url() -> str:
     """
     # Check for complete DATABASE_URL
     database_url = os.getenv("DATABASE_URL")
-    if database_url:
+    if database_url and "${" not in database_url:
         return database_url
-    
+
     # Check for PostgreSQL environment variables
     db_host = os.getenv("DB_HOST")
     db_port = os.getenv("DB_PORT", "5432")
     db_name = os.getenv("DB_NAME", "credit_scoring")
     db_user = os.getenv("DB_USER", "postgres")
     db_password = os.getenv("DB_PASSWORD")
-    
+
     if db_host and db_password:
         return f"postgresql://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}"
-    
+
     # Fallback to SQLite for local development
     sqlite_path = PROJECT_ROOT / "data" / "credit_scoring.db"
     return f"sqlite:///{sqlite_path}"
@@ -80,8 +79,7 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 
 def get_db() -> Generator[Session, None, None]:
-    """
-    Dependency for FastAPI to get database session.
+    """Dependency for FastAPI to get database session.
     
     Usage:
         @app.get("/endpoint")
@@ -97,8 +95,7 @@ def get_db() -> Generator[Session, None, None]:
 
 @contextmanager
 def get_db_context() -> Generator[Session, None, None]:
-    """
-    Context manager for database session.
+    """Context manager for database session.
     
     Usage:
         with get_db_context() as db:

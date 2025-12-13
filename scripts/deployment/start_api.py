@@ -1,5 +1,4 @@
-"""
-Start the Credit Scoring API Server.
+"""Start the Credit Scoring API Server.
 
 Usage:
     poetry run python scripts/deployment/start_api.py
@@ -35,7 +34,7 @@ def main():
     ]
 
     try:
-        subprocess.run(cmd, cwd=PROJECT_ROOT)
+        subprocess.run(cmd, check=False, cwd=PROJECT_ROOT)
     except KeyboardInterrupt:
         print("\n\nServer stopped.")
         sys.exit(0)

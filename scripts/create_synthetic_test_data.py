@@ -1,7 +1,7 @@
 """Create synthetic test data derived from end_user_tests with new IDs."""
-import pandas as pd
-import numpy as np
 from pathlib import Path
+
+import pandas as pd
 
 PROJECT_ROOT = Path(__file__).parent.parent
 SOURCE_DIR = PROJECT_ROOT / "data" / "end_user_tests"
@@ -64,7 +64,7 @@ if len(bureau) > 0:
     print(f"  Saved {len(bureau_synthetic)} bureau records")
 else:
     pd.DataFrame().to_csv(OUTPUT_DIR / 'bureau.csv', index=False)
-    print(f"  Saved empty file")
+    print("  Saved empty file")
 
 print("\n[3/7] Creating synthetic bureau_balance.csv...")
 if len(bureau_balance) > 0 and len(bureau) > 0:
@@ -74,7 +74,7 @@ if len(bureau_balance) > 0 and len(bureau) > 0:
     print(f"  Saved {len(bureau_balance_synthetic)} bureau_balance records")
 else:
     pd.DataFrame().to_csv(OUTPUT_DIR / 'bureau_balance.csv', index=False)
-    print(f"  Saved empty file")
+    print("  Saved empty file")
 
 print("\n[4/7] Creating synthetic previous_application.csv...")
 if len(prev_app) > 0:
@@ -88,7 +88,7 @@ if len(prev_app) > 0:
     print(f"  Saved {len(prev_app_synthetic)} previous_application records")
 else:
     pd.DataFrame().to_csv(OUTPUT_DIR / 'previous_application.csv', index=False)
-    print(f"  Saved empty file")
+    print("  Saved empty file")
 
 print("\n[5/7] Creating synthetic credit_card_balance.csv...")
 if len(cc) > 0:
@@ -98,7 +98,7 @@ if len(cc) > 0:
     print(f"  Saved {len(cc_synthetic)} credit_card_balance records")
 else:
     pd.DataFrame().to_csv(OUTPUT_DIR / 'credit_card_balance.csv', index=False)
-    print(f"  Saved empty file")
+    print("  Saved empty file")
 
 print("\n[6/7] Creating synthetic installments_payments.csv...")
 if len(installments) > 0:
@@ -108,7 +108,7 @@ if len(installments) > 0:
     print(f"  Saved {len(installments_synthetic)} installments_payments records")
 else:
     pd.DataFrame().to_csv(OUTPUT_DIR / 'installments_payments.csv', index=False)
-    print(f"  Saved empty file")
+    print("  Saved empty file")
 
 print("\n[7/7] Creating synthetic POS_CASH_balance.csv...")
 if len(pos_cash) > 0:
@@ -118,7 +118,7 @@ if len(pos_cash) > 0:
     print(f"  Saved {len(pos_cash_synthetic)} POS_CASH_balance records")
 else:
     pd.DataFrame().to_csv(OUTPUT_DIR / 'POS_CASH_balance.csv', index=False)
-    print(f"  Saved empty file")
+    print("  Saved empty file")
 
 print("\n" + "="*80)
 print("SYNTHETIC DATA SUMMARY")
@@ -127,11 +127,11 @@ print(f"Created {len(synthetic_ids)} synthetic applications")
 print(f"  Original IDs: {original_ids[0]} - {original_ids[-1]}")
 print(f"  Synthetic IDs: {synthetic_ids[0]} - {synthetic_ids[-1]}")
 print(f"\nOutput directory: {OUTPUT_DIR}")
-print(f"\nThese applications:")
-print(f"  - Have the same features/patterns as end_user_tests")
-print(f"  - Have NEW SK_ID_CURR values not in train/val/test")
-print(f"  - Will force the API to use FULL preprocessing pipeline")
-print(f"  - Will test if the pipeline works for truly new applications")
+print("\nThese applications:")
+print("  - Have the same features/patterns as end_user_tests")
+print("  - Have NEW SK_ID_CURR values not in train/val/test")
+print("  - Will force the API to use FULL preprocessing pipeline")
+print("  - Will test if the pipeline works for truly new applications")
 print("="*80)
 
 # Save ID mapping for reference

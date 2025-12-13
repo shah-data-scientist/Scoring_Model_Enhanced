@@ -1,14 +1,14 @@
-"""
-Convert X_train.csv to Parquet format for 10-100x faster loading.
+"""Convert X_train.csv to Parquet format for 10-100x faster loading.
 
 Parquet is a columnar storage format optimized for:
 - Fast reading (especially for ML features)
 - Efficient compression
 - Type preservation
 """
-import pandas as pd
-from pathlib import Path
 import time
+from pathlib import Path
+
+import pandas as pd
 
 print("="*80)
 print("CONVERTING X_TRAIN.CSV TO PARQUET FORMAT")
@@ -56,11 +56,11 @@ parquet_size_mb = parquet_path.stat().st_size / (1024 * 1024)
 print("\n" + "="*80)
 print("CONVERSION COMPLETE")
 print("="*80)
-print(f"\nFile sizes:")
+print("\nFile sizes:")
 print(f"  CSV:     {csv_size_mb:,.1f} MB")
 print(f"  Parquet: {parquet_size_mb:,.1f} MB ({parquet_size_mb/csv_size_mb*100:.1f}% of original)")
 
-print(f"\nLoad times:")
+print("\nLoad times:")
 print(f"  CSV:     {csv_time:.2f}s")
 print(f"  Parquet: {parquet_load_time:.2f}s ({csv_time/parquet_load_time:.1f}x faster!)")
 

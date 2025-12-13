@@ -1,5 +1,4 @@
-"""
-Feature aggregation from multiple data sources for Home Credit Default Risk.
+"""Feature aggregation from multiple data sources for Home Credit Default Risk.
 
 This module handles joining and aggregating features from:
 - bureau.csv: Credit bureau data
@@ -10,15 +9,13 @@ This module handles joining and aggregating features from:
 - installments_payments.csv: Payment installment history
 """
 
-import pandas as pd
-import numpy as np
 from pathlib import Path
-from typing import Tuple
+
+import pandas as pd
 
 
 def aggregate_bureau(bureau_df: pd.DataFrame, bureau_balance_agg: pd.DataFrame = None) -> pd.DataFrame:
-    """
-    Aggregate credit bureau data by customer.
+    """Aggregate credit bureau data by customer.
 
     Args:
         bureau_df: Credit bureau records
@@ -26,6 +23,7 @@ def aggregate_bureau(bureau_df: pd.DataFrame, bureau_balance_agg: pd.DataFrame =
 
     Returns:
         DataFrame aggregated by SK_ID_CURR
+
     """
     print("  Aggregating bureau data...")
 
@@ -57,13 +55,13 @@ def aggregate_bureau(bureau_df: pd.DataFrame, bureau_balance_agg: pd.DataFrame =
 
     # Flatten column names
     bureau_agg.columns = ['SK_ID_CURR'] + [
-        f'BUREAU_{col[0]}_{col[1].upper()}' if col[1] else f'BUREAU_{col[0]}'
+        f'BUREAU_{col[0]}_{str(col[1]).upper()}' if col[1] else f'BUREAU_{col[0]}'
         for col in bureau_agg.columns[1:]
     ]
 
     # Separately aggregate credit status
     credit_status = bureau_df.groupby('SK_ID_CURR')['CREDIT_ACTIVE'].value_counts().unstack(fill_value=0)
-    credit_status.columns = [f'BUREAU_CREDIT_{col.upper()}_COUNT' for col in credit_status.columns]
+    credit_status.columns = [f'BUREAU_CREDIT_{str(col).upper()}_COUNT' for col in credit_status.columns]
     credit_status = credit_status.reset_index()
 
     # Merge credit status
@@ -84,14 +82,14 @@ def aggregate_bureau(bureau_df: pd.DataFrame, bureau_balance_agg: pd.DataFrame =
 
 
 def aggregate_previous_applications(prev_df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Aggregate previous loan applications by customer.
+    """Aggregate previous loan applications by customer.
 
     Args:
         prev_df: Previous applications data
 
     Returns:
         DataFrame aggregated by SK_ID_CURR
+
     """
     print("  Aggregating previous applications...")
 
@@ -126,13 +124,13 @@ def aggregate_previous_applications(prev_df: pd.DataFrame) -> pd.DataFrame:
 
     # Flatten column names
     prev_agg.columns = ['SK_ID_CURR'] + [
-        f'PREV_{col[0]}_{col[1].upper()}' if col[1] else f'PREV_{col[0]}'
+        f'PREV_{col[0]}_{str(col[1]).upper()}' if col[1] else f'PREV_{col[0]}'
         for col in prev_agg.columns[1:]
     ]
 
     # Separately aggregate status counts
     status_counts = prev_df.groupby('SK_ID_CURR')['NAME_CONTRACT_STATUS'].value_counts().unstack(fill_value=0)
-    status_counts.columns = [f'PREV_STATUS_{col.upper()}_COUNT' for col in status_counts.columns]
+    status_counts.columns = [f'PREV_STATUS_{str(col).upper()}_COUNT' for col in status_counts.columns]
     status_counts = status_counts.reset_index()
 
     # Merge status counts
@@ -156,14 +154,14 @@ def aggregate_previous_applications(prev_df: pd.DataFrame) -> pd.DataFrame:
 
 
 def aggregate_pos_cash(pos_df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Aggregate POS and cash loan balances by customer.
+    """Aggregate POS and cash loan balances by customer.
 
     Args:
         pos_df: POS cash balance data
 
     Returns:
         DataFrame aggregated by SK_ID_CURR
+
     """
     print("  Aggregating POS/cash balances...")
 
@@ -178,7 +176,7 @@ def aggregate_pos_cash(pos_df: pd.DataFrame) -> pd.DataFrame:
 
     # Flatten column names
     pos_agg.columns = ['SK_ID_CURR'] + [
-        f'POS_{col[0]}_{col[1].upper()}' if col[1] else f'POS_{col[0]}'
+        f'POS_{col[0]}_{str(col[1]).upper()}' if col[1] else f'POS_{col[0]}'
         for col in pos_agg.columns[1:]
     ]
 
@@ -187,14 +185,14 @@ def aggregate_pos_cash(pos_df: pd.DataFrame) -> pd.DataFrame:
 
 
 def aggregate_credit_card(cc_df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Aggregate credit card balances by customer.
+    """Aggregate credit card balances by customer.
 
     Args:
         cc_df: Credit card balance data
 
     Returns:
         DataFrame aggregated by SK_ID_CURR
+
     """
     print("  Aggregating credit card balances...")
 
@@ -218,7 +216,7 @@ def aggregate_credit_card(cc_df: pd.DataFrame) -> pd.DataFrame:
 
     # Flatten column names
     cc_agg.columns = ['SK_ID_CURR'] + [
-        f'CC_{col[0]}_{col[1].upper()}' if col[1] else f'CC_{col[0]}'
+        f'CC_{col[0]}_{str(col[1]).upper()}' if col[1] else f'CC_{col[0]}'
         for col in cc_agg.columns[1:]
     ]
 
@@ -237,14 +235,14 @@ def aggregate_credit_card(cc_df: pd.DataFrame) -> pd.DataFrame:
 
 
 def aggregate_installments(inst_df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Aggregate installment payments by customer.
+    """Aggregate installment payments by customer.
 
     Args:
         inst_df: Installment payments data
 
     Returns:
         DataFrame aggregated by SK_ID_CURR
+
     """
     print("  Aggregating installment payments...")
 
@@ -270,7 +268,7 @@ def aggregate_installments(inst_df: pd.DataFrame) -> pd.DataFrame:
 
     # Flatten column names
     inst_agg.columns = ['SK_ID_CURR'] + [
-        f'INST_{col[0]}_{col[1].upper()}' if col[1] else f'INST_{col[0]}'
+        f'INST_{col[0]}_{str(col[1]).upper()}' if col[1] else f'INST_{col[0]}'
         for col in inst_agg.columns[1:]
     ]
 
@@ -281,15 +279,15 @@ def aggregate_installments(inst_df: pd.DataFrame) -> pd.DataFrame:
     return inst_agg
 
 
-def load_and_aggregate_all_data(data_dir: str = 'data') -> Tuple[pd.DataFrame, pd.DataFrame]:
-    """
-    Load and aggregate all data sources.
+def load_and_aggregate_all_data(data_dir: str = 'data') -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Load and aggregate all data sources.
 
     Args:
         data_dir: Path to data directory
 
     Returns:
         Tuple of (train_df, test_df) with all aggregated features
+
     """
     data_path = Path(data_dir)
 
@@ -309,7 +307,7 @@ def load_and_aggregate_all_data(data_dir: str = 'data') -> Tuple[pd.DataFrame, p
     print(f"   Bureau: {bureau_df.shape}")
 
     # Process bureau_balance in chunks (27M+ rows - memory intensive)
-    print(f"   Processing bureau_balance.csv in chunks...")
+    print("   Processing bureau_balance.csv in chunks...")
     chunk_size = 1_000_000
     chunk_list = []
     chunk_num = 0
@@ -359,7 +357,7 @@ def load_and_aggregate_all_data(data_dir: str = 'data') -> Tuple[pd.DataFrame, p
 
     # Load and aggregate installments with chunked processing
     print("\n6. Loading installment payments...")
-    print(f"   Processing installments_payments.csv in chunks...")
+    print("   Processing installments_payments.csv in chunks...")
     chunk_size = 2_000_000
     chunk_list = []
     chunk_num = 0
@@ -406,7 +404,7 @@ def load_and_aggregate_all_data(data_dir: str = 'data') -> Tuple[pd.DataFrame, p
     for col in inst_combined.columns:
         if col == 'SK_ID_CURR':
             continue
-        elif 'count' in col or 'sum' in col:
+        if 'count' in col or 'sum' in col:
             agg_dict[col] = 'sum'
         elif 'min' in col:
             agg_dict[col] = 'min'
@@ -419,7 +417,7 @@ def load_and_aggregate_all_data(data_dir: str = 'data') -> Tuple[pd.DataFrame, p
 
     # Rename columns with INST_ prefix
     inst_agg.columns = ['SK_ID_CURR'] + [
-        f'INST_{col.upper()}' for col in inst_agg.columns[1:]
+        f'INST_{str(col).upper()}' for col in inst_agg.columns[1:]
     ]
 
     # Engineered features
@@ -443,7 +441,7 @@ def load_and_aggregate_all_data(data_dir: str = 'data') -> Tuple[pd.DataFrame, p
     test_df = test_df.merge(cc_agg, on='SK_ID_CURR', how='left')
     test_df = test_df.merge(inst_agg, on='SK_ID_CURR', how='left')
 
-    print(f"\n[SUCCESS] Final shapes:")
+    print("\n[SUCCESS] Final shapes:")
     print(f"   Train: {train_df.shape}")
     print(f"   Test: {test_df.shape}")
     print(f"   Total features: {train_df.shape[1] - 2} (excluding SK_ID_CURR and TARGET)")

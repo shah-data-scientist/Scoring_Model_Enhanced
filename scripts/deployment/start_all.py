@@ -1,5 +1,4 @@
-"""
-Start All Services (MLflow UI + Dashboard + API).
+"""Start All Services (MLflow UI + Dashboard + API).
 
 This script launches all three services in separate processes.
 
@@ -9,8 +8,8 @@ Usage:
 import subprocess
 import sys
 import time
-from pathlib import Path
 import webbrowser
+from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).parent.parent.parent
 
@@ -54,7 +53,7 @@ def main():
         print("[2/3] Starting Streamlit Dashboard...")
         dashboard_cmd = [
             "poetry", "run", "streamlit", "run",
-            "scripts/deployment/dashboard.py",
+            "streamlit_app/app.py",
             "--server.port", "8501"
         ]
         dashboard_process = subprocess.Popen(

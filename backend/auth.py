@@ -1,41 +1,39 @@
-"""
-Authentication Module
+"""Authentication Module
 =====================
 Password hashing, user authentication, and session management.
 Uses bcrypt for secure password hashing as required.
 """
 
-import bcrypt
 from datetime import datetime, timedelta
-from typing import Optional
+
+import bcrypt
 from sqlalchemy.orm import Session
 
 from backend.models import User, UserRole
-
 
 # =============================================================================
 # PASSWORD HASHING (using bcrypt)
 # =============================================================================
 
 def hash_password(password: str) -> str:
-    """
-    Hash a password using bcrypt.
+    """Hash a password using bcrypt.
     
     Args:
         password: Plain text password
         
     Returns:
         Hashed password string
+
     """
     # Generate salt and hash
-    salt = bcrypt.gensalt(rounds=12)  # 12 rounds is a good balance
+    # 10 rounds for faster login (still secure, ~100ms vs ~300ms with 12)
+    salt = bcrypt.gensalt(rounds=10)
     hashed = bcrypt.hashpw(password.encode('utf-8'), salt)
     return hashed.decode('utf-8')
 
 
 def verify_password(password: str, hashed: str) -> bool:
-    """
-    Verify a password against its hash.
+    """Verify a password against its hash.
     
     Args:
         password: Plain text password to verify
@@ -43,6 +41,7 @@ def verify_password(password: str, hashed: str) -> bool:
         
     Returns:
         True if password matches, False otherwise
+
     """
     try:
         return bcrypt.checkpw(password.encode('utf-8'), hashed.encode('utf-8'))
@@ -54,9 +53,8 @@ def verify_password(password: str, hashed: str) -> bool:
 # USER AUTHENTICATION
 # =============================================================================
 
-def authenticate_user(db: Session, username: str, password: str) -> Optional[User]:
-    """
-    Authenticate a user by username and password.
+def authenticate_user(db: Session, username: str, password: str) -> User | None:
+    """Authenticate a user by username and password.
     
     Args:
         db: Database session
@@ -65,30 +63,30 @@ def authenticate_user(db: Session, username: str, password: str) -> Optional[Use
         
     Returns:
         User object if authenticated, None otherwise
+
     """
     # Find user by username
     user = db.query(User).filter(
         User.username == username,
         User.is_active == True
     ).first()
-    
+
     if not user:
         return None
-    
+
     # Verify password
-    if not verify_password(password, user.password_hash):
+    if not verify_password(password, user.hashed_password):
         return None
-    
+
     # Update last login
     user.last_login = datetime.utcnow()
     db.commit()
-    
+
     return user
 
 
-def authenticate_by_email(db: Session, email: str, password: str) -> Optional[User]:
-    """
-    Authenticate a user by email and password.
+def authenticate_by_email(db: Session, email: str, password: str) -> User | None:
+    """Authenticate a user by email and password.
     
     Args:
         db: Database session
@@ -97,24 +95,25 @@ def authenticate_by_email(db: Session, email: str, password: str) -> Optional[Us
         
     Returns:
         User object if authenticated, None otherwise
+
     """
     # Find user by email
     user = db.query(User).filter(
         User.email == email,
         User.is_active == True
     ).first()
-    
+
     if not user:
         return None
-    
+
     # Verify password
-    if not verify_password(password, user.password_hash):
+    if not verify_password(password, user.hashed_password):
         return None
-    
+
     # Update last login
     user.last_login = datetime.utcnow()
     db.commit()
-    
+
     return user
 
 
@@ -129,8 +128,7 @@ def create_user(
     password: str,
     role: UserRole = UserRole.ANALYST
 ) -> User:
-    """
-    Create a new user.
+    """Create a new user.
     
     Args:
         db: Database session
@@ -144,34 +142,34 @@ def create_user(
         
     Raises:
         ValueError: If username or email already exists
+
     """
     # Check if username exists
     if db.query(User).filter(User.username == username).first():
         raise ValueError(f"Username '{username}' already exists")
-    
+
     # Check if email exists
     if db.query(User).filter(User.email == email).first():
         raise ValueError(f"Email '{email}' already exists")
-    
+
     # Create user
     user = User(
         username=username,
         email=email,
-        password_hash=hash_password(password),
+        hashed_password=hash_password(password),
         role=role,
         is_active=True
     )
-    
+
     db.add(user)
     db.commit()
     db.refresh(user)
-    
+
     return user
 
 
 def update_password(db: Session, user: User, new_password: str) -> bool:
-    """
-    Update a user's password.
+    """Update a user's password.
     
     Args:
         db: Database session
@@ -180,16 +178,16 @@ def update_password(db: Session, user: User, new_password: str) -> bool:
         
     Returns:
         True if successful
+
     """
-    user.password_hash = hash_password(new_password)
+    user.hashed_password = hash_password(new_password)
     user.updated_at = datetime.utcnow()
     db.commit()
     return True
 
 
 def deactivate_user(db: Session, user: User) -> bool:
-    """
-    Deactivate a user account.
+    """Deactivate a user account.
     
     Args:
         db: Database session
@@ -197,6 +195,7 @@ def deactivate_user(db: Session, user: User) -> bool:
         
     Returns:
         True if successful
+
     """
     user.is_active = False
     user.updated_at = datetime.utcnow()
@@ -204,17 +203,17 @@ def deactivate_user(db: Session, user: User) -> bool:
     return True
 
 
-def get_user_by_id(db: Session, user_id: int) -> Optional[User]:
+def get_user_by_id(db: Session, user_id: int) -> User | None:
     """Get user by ID."""
     return db.query(User).filter(User.id == user_id).first()
 
 
-def get_user_by_username(db: Session, username: str) -> Optional[User]:
+def get_user_by_username(db: Session, username: str) -> User | None:
     """Get user by username."""
     return db.query(User).filter(User.username == username).first()
 
 
-def get_user_by_email(db: Session, email: str) -> Optional[User]:
+def get_user_by_email(db: Session, email: str) -> User | None:
     """Get user by email."""
     return db.query(User).filter(User.email == email).first()
 
@@ -239,16 +238,15 @@ def is_analyst(user: User) -> bool:
 # =============================================================================
 
 class SessionManager:
-    """
-    Simple in-memory session manager for Streamlit.
+    """Simple in-memory session manager for Streamlit.
     
     For production, consider using Redis or database-backed sessions.
     """
-    
+
     def __init__(self, session_timeout_hours: int = 8):
         self._sessions = {}
         self._timeout = timedelta(hours=session_timeout_hours)
-    
+
     def create_session(self, user: User) -> str:
         """Create a new session for user."""
         import secrets
@@ -261,24 +259,24 @@ class SessionManager:
             'expires_at': datetime.utcnow() + self._timeout
         }
         return session_id
-    
-    def get_session(self, session_id: str) -> Optional[dict]:
+
+    def get_session(self, session_id: str) -> dict | None:
         """Get session data if valid."""
         session = self._sessions.get(session_id)
         if not session:
             return None
-        
+
         # Check expiration
         if datetime.utcnow() > session['expires_at']:
             self.invalidate_session(session_id)
             return None
-        
+
         return session
-    
+
     def invalidate_session(self, session_id: str):
         """Remove a session."""
         self._sessions.pop(session_id, None)
-    
+
     def cleanup_expired(self):
         """Remove all expired sessions."""
         now = datetime.utcnow()

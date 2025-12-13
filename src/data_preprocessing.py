@@ -1,5 +1,4 @@
-"""
-Data Preprocessing Utilities
+"""Data Preprocessing Utilities
 
 This module contains functions for:
 - Loading data
@@ -10,11 +9,11 @@ This module contains functions for:
 Educational Notes are included throughout to explain concepts!
 """
 
-import pandas as pd
-import numpy as np
-from pathlib import Path
-from typing import Tuple, List, Dict, Optional
 import warnings
+from pathlib import Path
+
+import numpy as np
+import pandas as pd
 
 warnings.filterwarnings('ignore')
 
@@ -23,9 +22,8 @@ def load_data(data_path: str = 'data',
               train_file: str = 'application_train.csv',
               test_file: str = 'application_test.csv',
               use_all_data_sources: bool = True,
-              validate: bool = True) -> Tuple[pd.DataFrame, pd.DataFrame]:
-    """
-    Load training and test datasets with comprehensive validation.
+              validate: bool = True) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Load training and test datasets with comprehensive validation.
 
     Educational Note:
     -----------------
@@ -41,8 +39,8 @@ def load_data(data_path: str = 'data',
     - credit_card_balance.csv: Credit card balances
     - installments_payments.csv: Payment installment history
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     data_path : str
         Path to data directory
     train_file : str
@@ -54,13 +52,13 @@ def load_data(data_path: str = 'data',
     validate : bool
         If True, run comprehensive data validation
 
-    Returns:
-    --------
+    Returns
+    -------
     Tuple[pd.DataFrame, pd.DataFrame]
         Training and test dataframes
 
-    Raises:
-    -------
+    Raises
+    ------
     FileNotFoundError : If data files don't exist
     ValueError : If data validation fails
 
@@ -68,10 +66,13 @@ def load_data(data_path: str = 'data',
     --------
     >>> train_df, test_df = load_data(use_all_data_sources=True)
     >>> print(f"Train shape: {train_df.shape}")
+
     """
     from src.validation import (
-        validate_file_exists, validate_dataframe_schema,
-        validate_id_column, validate_target_column
+        validate_dataframe_schema,
+        validate_file_exists,
+        validate_id_column,
+        validate_target_column,
     )
 
     path = Path(data_path)
@@ -176,8 +177,7 @@ def load_data(data_path: str = 'data',
 def analyze_missing_values(df: pd.DataFrame,
                            threshold: float = 0.0,
                            verbose: bool = True) -> pd.DataFrame:
-    """
-    Analyze missing values in a dataframe.
+    """Analyze missing values in a dataframe.
 
     Educational Note:
     -----------------
@@ -193,8 +193,8 @@ def analyze_missing_values(df: pd.DataFrame,
     3. **Missing Not at Random (MNAR):** Missing has a pattern (e.g., people don't report high income)
        → Create "is_missing" indicator feature!
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     df : pd.DataFrame
         Input dataframe
     threshold : float
@@ -202,8 +202,8 @@ def analyze_missing_values(df: pd.DataFrame,
     verbose : bool
         Print detailed output
 
-    Returns:
-    --------
+    Returns
+    -------
     pd.DataFrame
         Summary of missing values
 
@@ -211,6 +211,7 @@ def analyze_missing_values(df: pd.DataFrame,
     --------
     >>> missing_summary = analyze_missing_values(train_df, threshold=10)
     >>> # Shows only features with >10% missing
+
     """
     # Calculate missing values
     total = df.isnull().sum()
@@ -235,7 +236,7 @@ def analyze_missing_values(df: pd.DataFrame,
         print("=" * 80)
         print(f"Total features: {len(df.columns)}")
         print(f"Features with missing > {threshold}%: {len(missing_data)}")
-        print(f"\\nTop features with missing values:")
+        print("\\nTop features with missing values:")
         print(missing_data.head(15).to_string(index=False))
 
         # Categorize severity
@@ -244,7 +245,7 @@ def analyze_missing_values(df: pd.DataFrame,
                                          (missing_data['missing_percent'] <= 50)])
         low_missing = len(missing_data[missing_data['missing_percent'] <= 20])
 
-        print(f"\\n📊 Severity Breakdown:")
+        print("\\n📊 Severity Breakdown:")
         print(f"   High (>50%): {high_missing} features")
         print(f"   Medium (20-50%): {medium_missing} features")
         print(f"   Low (<20%): {low_missing} features")
@@ -256,10 +257,9 @@ def analyze_missing_values(df: pd.DataFrame,
 
 
 def handle_missing_values(df: pd.DataFrame,
-                          strategy: Dict[str, str],
+                          strategy: dict[str, str],
                           create_indicators: bool = True) -> pd.DataFrame:
-    """
-    Handle missing values using specified strategies.
+    """Handle missing values using specified strategies.
 
     Educational Note:
     -----------------
@@ -274,8 +274,8 @@ def handle_missing_values(df: pd.DataFrame,
 
     Creating "is_missing" indicators preserves information about missingness!
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     df : pd.DataFrame
         Input dataframe
     strategy : Dict[str, str]
@@ -284,8 +284,8 @@ def handle_missing_values(df: pd.DataFrame,
     create_indicators : bool
         Whether to create binary "was_missing" indicator features
 
-    Returns:
-    --------
+    Returns
+    -------
     pd.DataFrame
         Dataframe with missing values handled
 
@@ -297,6 +297,7 @@ def handle_missing_values(df: pd.DataFrame,
     ...     'VERY_SPARSE_FEATURE': 'drop'
     ... }
     >>> df_clean = handle_missing_values(df, strategy)
+
     """
     df_copy = df.copy()
 
@@ -349,11 +350,10 @@ def handle_missing_values(df: pd.DataFrame,
 
 
 def detect_outliers(df: pd.DataFrame,
-                   features: List[str],
+                   features: list[str],
                    method: str = 'iqr',
                    threshold: float = 3.0) -> pd.DataFrame:
-    """
-    Detect outliers in numerical features.
+    """Detect outliers in numerical features.
 
     Educational Note:
     -----------------
@@ -377,8 +377,8 @@ def detect_outliers(df: pd.DataFrame,
     **Important:** Don't automatically remove outliers! Investigate first.
     In credit scoring, extreme values might be informative (e.g., very high debt).
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     df : pd.DataFrame
         Input dataframe
     features : List[str]
@@ -388,8 +388,8 @@ def detect_outliers(df: pd.DataFrame,
     threshold : float
         Threshold for outlier detection (for z-score method)
 
-    Returns:
-    --------
+    Returns
+    -------
     pd.DataFrame
         Summary of outliers per feature
 
@@ -397,6 +397,7 @@ def detect_outliers(df: pd.DataFrame,
     --------
     >>> numerical_cols = ['AMT_INCOME_TOTAL', 'AMT_CREDIT', 'AMT_ANNUITY']
     >>> outlier_summary = detect_outliers(df, numerical_cols, method='iqr')
+
     """
     outlier_summary = []
 
@@ -453,9 +454,8 @@ def detect_outliers(df: pd.DataFrame,
     return summary_df
 
 
-def validate_data_quality(df: pd.DataFrame, target_col: str = 'TARGET') -> Dict[str, any]:
-    """
-    Comprehensive data quality validation.
+def validate_data_quality(df: pd.DataFrame, target_col: str = 'TARGET') -> dict[str, any]:
+    """Comprehensive data quality validation.
 
     Educational Note:
     -----------------
@@ -467,15 +467,15 @@ def validate_data_quality(df: pd.DataFrame, target_col: str = 'TARGET') -> Dict[
     - High cardinality categoricals (too many unique values)
     - Target leakage (features that shouldn't be available at prediction time)
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     df : pd.DataFrame
         Input dataframe
     target_col : str
         Name of target column
 
-    Returns:
-    --------
+    Returns
+    -------
     Dict[str, any]
         Dictionary with validation results
 
@@ -484,6 +484,7 @@ def validate_data_quality(df: pd.DataFrame, target_col: str = 'TARGET') -> Dict[
     >>> quality_report = validate_data_quality(train_df)
     >>> if quality_report['has_issues']:
     ...     print("⚠️ Data quality issues found!")
+
     """
     results = {
         'has_issues': False,
@@ -501,7 +502,7 @@ def validate_data_quality(df: pd.DataFrame, target_col: str = 'TARGET') -> Dict[
         results['issues'].append(f"Found {n_duplicates} duplicate rows")
         print(f"⚠️  Duplicate rows: {n_duplicates}")
     else:
-        print(f"✅ No duplicate rows")
+        print("✅ No duplicate rows")
 
     # Check for constant features (no variance)
     constant_features = []
@@ -514,7 +515,7 @@ def validate_data_quality(df: pd.DataFrame, target_col: str = 'TARGET') -> Dict[
         results['issues'].append(f"Constant features: {constant_features}")
         print(f"⚠️  Constant features (remove these): {constant_features}")
     else:
-        print(f"✅ No constant features")
+        print("✅ No constant features")
 
     # Check for inf values
     inf_features = []
@@ -527,7 +528,7 @@ def validate_data_quality(df: pd.DataFrame, target_col: str = 'TARGET') -> Dict[
         results['issues'].append(f"Inf values in: {inf_features}")
         print(f"⚠️  Inf values found in: {inf_features}")
     else:
-        print(f"✅ No inf values")
+        print("✅ No inf values")
 
     # Check target distribution
     if target_col in df.columns:
@@ -535,7 +536,7 @@ def validate_data_quality(df: pd.DataFrame, target_col: str = 'TARGET') -> Dict[
         if target_dist.min() < 0.01:
             results['has_issues'] = True
             results['issues'].append(f"Severe class imbalance: {target_dist.to_dict()}")
-            print(f"⚠️  Severe class imbalance detected")
+            print("⚠️  Severe class imbalance detected")
         print(f"✅ Target distribution: {target_dist.to_dict()}")
 
     # Check high cardinality categoricals
@@ -546,7 +547,7 @@ def validate_data_quality(df: pd.DataFrame, target_col: str = 'TARGET') -> Dict[
             high_card_features.append((col, n_unique))
 
     if high_card_features:
-        print(f"⚠️  High cardinality categorical features (may need special encoding):")
+        print("⚠️  High cardinality categorical features (may need special encoding):")
         for feat, n in high_card_features:
             print(f"   - {feat}: {n} unique values")
 

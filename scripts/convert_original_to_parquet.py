@@ -1,7 +1,8 @@
 """Convert original X_train.csv to Parquet format."""
-import pandas as pd
 import time
 from pathlib import Path
+
+import pandas as pd
 
 PROJECT_ROOT = Path(__file__).parent.parent
 
@@ -35,7 +36,7 @@ df.insert(0, 'SK_ID_CURR', train_ids['SK_ID_CURR'].values)
 print(f"  Final shape: {df.shape}")
 
 # Save to Parquet
-print(f"\n[4/4] Saving to Parquet...")
+print("\n[4/4] Saving to Parquet...")
 start = time.time()
 df.to_parquet(parquet_path, index=False, compression='snappy')
 parquet_time = time.time() - start
@@ -50,6 +51,7 @@ print(f"  Loaded {len(test_df):,} rows × {len(test_df.columns)} columns in {loa
 
 # File size comparison
 import os
+
 csv_size = os.path.getsize(csv_path) / (1024**2)
 parquet_size = os.path.getsize(parquet_path) / (1024**2)
 

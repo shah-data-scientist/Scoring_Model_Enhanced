@@ -1,5 +1,4 @@
-"""
-Re-register the best model to MLflow Model Registry.
+"""Re-register the best model to MLflow Model Registry.
 
 This script finds the best run by ROC-AUC and registers it as the production model.
 
@@ -7,9 +6,10 @@ Usage:
     poetry run python scripts/mlflow/register_best_model.py
 """
 
+from pathlib import Path
+
 import mlflow
 from mlflow.tracking import MlflowClient
-from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).parent.parent.parent
 MLRUNS_DIR = PROJECT_ROOT / "mlruns"
@@ -64,7 +64,7 @@ def main():
     precision = best_run.data.metrics.get('precision', 0)
     recall = best_run.data.metrics.get('recall', 0)
 
-    print(f"\nSUCCESS: Found best model:")
+    print("\nSUCCESS: Found best model:")
     print(f"   Run ID: {run_id}")
     print(f"   ROC-AUC: {roc_auc:.4f}")
     print(f"   Precision: {precision:.4f}")
@@ -92,7 +92,7 @@ def main():
                             run_id = run.info.run_id
                             roc_auc = run.data.metrics.get('roc_auc', 0)
                             model_artifact = artifact.path
-                            print(f"\nSUCCESS: Found run with model artifact:")
+                            print("\nSUCCESS: Found run with model artifact:")
                             print(f"   Run ID: {run_id}")
                             print(f"   ROC-AUC: {roc_auc:.4f}")
                             break
@@ -111,7 +111,7 @@ def main():
         model_artifact = "model"  # Try default path
 
     # Register model
-    print(f"\nRegistering model to registry...")
+    print("\nRegistering model to registry...")
     model_name = "CreditScoringModel"
 
     try:
@@ -131,13 +131,13 @@ def main():
         model_uri = f"runs:/{run_id}/{model_artifact}"
         model_version = mlflow.register_model(model_uri, model_name)
 
-        print(f"\nSUCCESS: Model registered successfully!")
+        print("\nSUCCESS: Model registered successfully!")
         print(f"   Model Name: {model_name}")
         print(f"   Version: {model_version.version}")
         print(f"   Run ID: {run_id}")
 
         # Transition to production
-        print(f"\nTransitioning to Production stage...")
+        print("\nTransitioning to Production stage...")
         client.transition_model_version_stage(
             name=model_name,
             version=model_version.version,
@@ -145,7 +145,7 @@ def main():
             archive_existing_versions=True
         )
 
-        print(f"SUCCESS: Model is now in Production stage!")
+        print("SUCCESS: Model is now in Production stage!")
 
         # Add description
         client.update_model_version(
@@ -157,12 +157,12 @@ def main():
         print("\n" + "=" * 80)
         print("REGISTRATION COMPLETE")
         print("=" * 80)
-        print(f"\nModel Details:")
+        print("\nModel Details:")
         print(f"   Name: {model_name}")
         print(f"   Version: {model_version.version}")
-        print(f"   Stage: Production")
+        print("   Stage: Production")
         print(f"   ROC-AUC: {roc_auc:.4f}")
-        print(f"\nSUCCESS: The API should now work correctly!")
+        print("\nSUCCESS: The API should now work correctly!")
 
     except Exception as e:
         print(f"\nERROR: Error registering model: {e}")

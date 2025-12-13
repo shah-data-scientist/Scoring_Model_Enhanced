@@ -1,0 +1,97 @@
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+ENV/
+env/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# Documentation
+*.md
+docs/
+notebooks/
+htmlcov/
+
+# Tests
+tests/
+test_*.py
+*_test.py
+.coverage
+.pytest_cache/
+
+# Large data files (keep only processed)
+data/
+
+# MLflow
+mlruns/
+mlruns_full_backup/
+mlartifacts/
+
+# Models
+models/
+
+# Results and artifacts
+results/
+artifacts/
+*.png
+*.jpg
+*.jpeg
+
+# Logs
+logs/
+*.log
+api_stdout.txt
+api_stderr.txt
+
+# Scripts (not needed in container)
+scripts/
+
+# CI/CD
+.github/
+.dockerignore
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.bak
+*.swp
+.env
+
+# Batch scripts
+*.bat
+*.sh
+
+# Project docs
+DEPLOYMENT_GUIDE.md
+FINAL_RESOLUTION.md
+MLFLOW_SOLUTION.md
+MLOPS_IMPLEMENTATION_SUMMARY.md
+PERFORMANCE_FIXES.md
+PREDICTION_DIFFERENCES_EXPLAINED.md
+PROJECT_STATUS.md
+README.md
+SIMPLE_FIX.md
+TEST_SET_PREDICTION_ISSUE.md
+BATCH_API_STATUS.md
+pipeline_discrepancy.csv

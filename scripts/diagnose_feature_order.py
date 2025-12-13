@@ -1,7 +1,8 @@
 """Diagnose feature order mismatch."""
-import pandas as pd
 import pickle
 from pathlib import Path
+
+import pandas as pd
 
 PROJECT_ROOT = Path(__file__).parent.parent
 
@@ -28,7 +29,7 @@ else:
 
 # Check if feature names match
 if len(model_features) != len(feature_cols):
-    print(f"[ERROR] Feature count mismatch!")
+    print("[ERROR] Feature count mismatch!")
     print(f"  Model expects: {len(model_features)}")
     print(f"  Parquet has: {len(feature_cols)}")
 else:
@@ -45,7 +46,7 @@ if mismatches:
     for i, model_feat, parquet_feat in mismatches[:20]:
         print(f"  Position {i}: Model='{model_feat}', Parquet='{parquet_feat}'")
 else:
-    print(f"\n[OK] Feature names and order match perfectly!")
+    print("\n[OK] Feature names and order match perfectly!")
 
 # Check for missing features
 model_set = set(model_features)

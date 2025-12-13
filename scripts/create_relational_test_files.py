@@ -1,15 +1,16 @@
 
-import pandas as pd
 from pathlib import Path
-import os
+
+import pandas as pd
+
 
 def create_relational_test_files():
     # Define paths
-    base_dir = Path(".")
+    base_dir = Path()
     submission_path = base_dir / "results" / "submission.csv"
     data_dir = base_dir / "data"
     output_dir = base_dir / "data" / "end_user_tests"
-    
+
     output_dir.mkdir(parents=True, exist_ok=True)
 
     # 1. Get Selected IDs
@@ -22,26 +23,26 @@ def create_relational_test_files():
 
     # Sort and Select
     # df_sub_sorted = df_sub.sort_values(by="TARGET", ascending=False)
-    
+
     # Select 50 Random Applications
     print("Selecting 50 random applications...")
     selected_meta = df_sub.sample(n=50, random_state=42).copy()
-    
+
     # Assign Risk Category for file naming (based on global distribution)
     # We can use simple thresholds or just quantiles of the sample
     # Let's use thresholds from the full submission file for consistency
     high_threshold = df_sub['TARGET'].quantile(0.90)
     low_threshold = df_sub['TARGET'].quantile(0.10)
-    
+
     def get_risk_cat(prob):
         if prob >= high_threshold: return 'High'
         if prob <= low_threshold: return 'Low'
         return 'Medium'
-        
+
     selected_meta['risk_category'] = selected_meta['TARGET'].apply(get_risk_cat)
-    
+
     selected_ids_set = set(selected_meta['SK_ID_CURR'].tolist())
-    
+
     print(f"Selected {len(selected_ids_set)} applications.")
     print(selected_meta['risk_category'].value_counts())
 
@@ -79,7 +80,7 @@ def create_relational_test_files():
                     filtered_chunk = chunk[chunk['SK_ID_CURR'].isin(selected_ids_set)]
                     if not filtered_chunk.empty:
                         chunks.append(filtered_chunk)
-                
+
                 if chunks:
                     extracted_data[filename] = pd.concat(chunks)
                 else:
@@ -97,7 +98,7 @@ def create_relational_test_files():
     if 'bureau.csv' in extracted_data and not extracted_data['bureau.csv'].empty:
         bureau_ids = set(extracted_data['bureau.csv']['SK_ID_BUREAU'].unique())
         print(f"Processing bureau_balance.csv for {len(bureau_ids)} bureau IDs...")
-        
+
         bb_path = data_dir / "bureau_balance.csv"
         if bb_path.exists():
             chunks = []
@@ -106,7 +107,7 @@ def create_relational_test_files():
                     filtered_chunk = chunk[chunk['SK_ID_BUREAU'].isin(bureau_ids)]
                     if not filtered_chunk.empty:
                         chunks.append(filtered_chunk)
-                
+
                 if chunks:
                     extracted_data['bureau_balance.csv'] = pd.concat(chunks)
                 else:
@@ -122,45 +123,44 @@ def create_relational_test_files():
 
     # 5. Save Files for each Application
     print("\nSaving files...")
-    
+
     for _, row in selected_meta.iterrows():
         app_id = int(row['SK_ID_CURR'])
         risk = row['risk_category'].lower()
         base_name = f"application_{app_id}_{risk}_risk"
-        
+
         # Create a folder for each application to keep things organized (optional, but cleaner)
         # Or just prefix files. The user asked for "make files", let's do prefixed files in the main dir.
-        
+
         # Save Main Application Record
         if 'application.csv' in extracted_data:
             app_data = extracted_data['application.csv']
             app_record = app_data[app_data['SK_ID_CURR'] == app_id]
             if not app_record.empty:
                 app_record.to_csv(output_dir / f"{base_name}_application.csv", index=False)
-        
+
         # Save Related Records
         for filename, df in extracted_data.items():
             if filename == 'application.csv': continue
-            
+
             if filename == 'bureau_balance.csv':
                 # Linked via SK_ID_BUREAU
                 # Get this app's bureau IDs
                 if 'bureau.csv' in extracted_data:
                     bureau_data = extracted_data['bureau.csv']
                     app_bureau_ids = bureau_data[bureau_data['SK_ID_CURR'] == app_id]['SK_ID_BUREAU']
-                    
+
                     if not df.empty:
                         related_records = df[df['SK_ID_BUREAU'].isin(app_bureau_ids)]
                         if not related_records.empty:
                              related_records.to_csv(output_dir / f"{base_name}_{filename}", index=False)
-            
-            else:
-                # Linked via SK_ID_CURR
-                if not df.empty:
-                    related_records = df[df['SK_ID_CURR'] == app_id]
-                    if not related_records.empty:
-                        related_records.to_csv(output_dir / f"{base_name}_{filename}", index=False)
-                        
+
+            # Linked via SK_ID_CURR
+            elif not df.empty:
+                related_records = df[df['SK_ID_CURR'] == app_id]
+                if not related_records.empty:
+                    related_records.to_csv(output_dir / f"{base_name}_{filename}", index=False)
+
         print(f"Generated files for {base_name}")
 
 if __name__ == "__main__":

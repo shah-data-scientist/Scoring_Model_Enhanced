@@ -1,5 +1,4 @@
-"""
-Add artifacts to top performing MLflow runs retroactively
+"""Add artifacts to top performing MLflow runs retroactively
 
 For each top run:
 1. Load the data and recreate the model
@@ -8,21 +7,26 @@ For each top run:
 """
 import sys
 from pathlib import Path
+
 sys.path.append(str(Path(__file__).parent))
 
-import mlflow
-from mlflow.tracking import MlflowClient
-import pandas as pd
-import numpy as np
 import matplotlib.pyplot as plt
+import mlflow
+import numpy as np
+import pandas as pd
 import seaborn as sns
-from sklearn.metrics import confusion_matrix, roc_curve, precision_recall_curve, roc_auc_score
-from sklearn.model_selection import cross_val_predict, StratifiedKFold
 from lightgbm import LGBMClassifier
+from mlflow.tracking import MlflowClient
+from sklearn.metrics import (
+    confusion_matrix,
+    precision_recall_curve,
+    roc_auc_score,
+    roc_curve,
+)
+from sklearn.model_selection import StratifiedKFold, cross_val_predict
 
-from src.config import MLFLOW_TRACKING_URI, RANDOM_STATE, PROJECT_ROOT
+from src.config import MLFLOW_TRACKING_URI, PROJECT_ROOT, RANDOM_STATE
 from src.domain_features import create_domain_features
-from src.sampling_strategies import get_sampling_strategy
 
 mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
 client = MlflowClient()
@@ -192,10 +196,10 @@ for idx, run in enumerate(runs, 1):
     plt.close()
 
     print(f'  [OK] Created 4 artifacts in {artifact_dir}')
-    print(f'    - confusion_matrix.png')
-    print(f'    - roc_curve.png')
-    print(f'    - pr_curve.png')
-    print(f'    - feature_importance.csv/png')
+    print('    - confusion_matrix.png')
+    print('    - roc_curve.png')
+    print('    - pr_curve.png')
+    print('    - feature_importance.csv/png')
 
 print('\n' + '='*80)
 print('ARTIFACT GENERATION COMPLETE')

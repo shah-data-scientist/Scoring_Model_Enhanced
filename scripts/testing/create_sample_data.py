@@ -1,13 +1,13 @@
-"""
-Create sample CSV files for API testing.
+"""Create sample CSV files for API testing.
 
 Extracts 20 applications from the training data along with all related
 records from auxiliary tables.
 """
 
-import pandas as pd
-from pathlib import Path
 import sys
+from pathlib import Path
+
+import pandas as pd
 
 # Setup path
 PROJECT_ROOT = Path(__file__).parent.parent.parent
@@ -21,11 +21,11 @@ SAMPLE_DIR = PROJECT_ROOT / "data" / "samples"
 SAMPLE_DIR.mkdir(exist_ok=True)
 
 def create_sample_files(n_samples=20):
-    """
-    Create sample CSV files for testing.
+    """Create sample CSV files for testing.
 
     Args:
         n_samples: Number of applications to sample
+
     """
     print(f"\n{'='*80}")
     print(f"CREATING SAMPLE DATA FOR API TESTING ({n_samples} applications)")
@@ -66,7 +66,7 @@ def create_sample_files(n_samples=20):
         pd.DataFrame(columns=['SK_ID_BUREAU', 'MONTHS_BALANCE', 'STATUS']).to_csv(
             SAMPLE_DIR / "bureau_balance.csv", index=False
         )
-        print(f"  Saved bureau_balance.csv: 0 rows (empty)")
+        print("  Saved bureau_balance.csv: 0 rows (empty)")
 
     # 3. Previous application
     print("\nStep 3: Extracting previous application data...")
@@ -93,7 +93,7 @@ def create_sample_files(n_samples=20):
         pd.DataFrame(columns=['SK_ID_PREV', 'SK_ID_CURR', 'MONTHS_BALANCE']).to_csv(
             SAMPLE_DIR / "credit_card_balance.csv", index=False
         )
-        print(f"  Saved credit_card_balance.csv: 0 rows (empty)")
+        print("  Saved credit_card_balance.csv: 0 rows (empty)")
 
     # 5. Installments payments
     print("\nStep 5: Extracting installments payments data...")
@@ -106,7 +106,7 @@ def create_sample_files(n_samples=20):
         pd.DataFrame(columns=['SK_ID_PREV', 'SK_ID_CURR', 'NUM_INSTALMENT_VERSION']).to_csv(
             SAMPLE_DIR / "installments_payments.csv", index=False
         )
-        print(f"  Saved installments_payments.csv: 0 rows (empty)")
+        print("  Saved installments_payments.csv: 0 rows (empty)")
 
     # 6. POS cash balance
     print("\nStep 6: Extracting POS cash balance data...")
@@ -119,17 +119,17 @@ def create_sample_files(n_samples=20):
         pd.DataFrame(columns=['SK_ID_PREV', 'SK_ID_CURR', 'MONTHS_BALANCE']).to_csv(
             SAMPLE_DIR / "POS_CASH_balance.csv", index=False
         )
-        print(f"  Saved POS_CASH_balance.csv: 0 rows (empty)")
+        print("  Saved POS_CASH_balance.csv: 0 rows (empty)")
 
     print(f"\n{'='*80}")
     print("SAMPLE DATA CREATION COMPLETE")
     print(f"{'='*80}\n")
     print(f"Sample files saved to: {SAMPLE_DIR}")
-    print(f"\nSummary:")
+    print("\nSummary:")
     print(f"  - {n_samples} applications sampled")
     print(f"  - SK_ID_CURR range: {app_sample['SK_ID_CURR'].min()} to {app_sample['SK_ID_CURR'].max()}")
-    print(f"  - All 7 CSV files created")
-    print(f"\nReady for API testing!")
+    print("  - All 7 CSV files created")
+    print("\nReady for API testing!")
 
 if __name__ == "__main__":
     create_sample_files(n_samples=20)

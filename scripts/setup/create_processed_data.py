@@ -1,16 +1,15 @@
-"""
-Script to create processed data with comprehensive features.
+"""Script to create processed data with comprehensive features.
 This script loads all data sources, performs feature engineering, and saves processed data.
 """
 import sys
 from pathlib import Path
-import pandas as pd
+
 import numpy as np
-from sklearn.preprocessing import StandardScaler, LabelEncoder
+import pandas as pd
+from sklearn.feature_selection import VarianceThreshold
 from sklearn.impute import SimpleImputer
 from sklearn.model_selection import train_test_split
-from sklearn.feature_selection import VarianceThreshold
-import gc
+from sklearn.preprocessing import StandardScaler
 
 # Add parent directory to path
 sys.path.append(str(Path(__file__).parent.parent))
@@ -215,14 +214,14 @@ def main():
     print("\n" + "="*80)
     print("SUCCESS! Processed data created")
     print("="*80)
-    print(f"\nFinal dataset:")
+    print("\nFinal dataset:")
     print(f"  - Training samples: {X_train_split.shape[0]:,}")
     print(f"  - Validation samples: {X_val_split.shape[0]:,}")
     print(f"  - Test samples: {X_test_scaled.shape[0]:,}")
     print(f"  - Features: {X_train_split.shape[1]}")
     print(f"  - Files saved to: {processed_dir}")
 
-    print(f"\nClass distribution:")
+    print("\nClass distribution:")
     print(f"  - Training: {y_train_split.value_counts(normalize=True).to_dict()}")
     print(f"  - Validation: {y_val_split.value_counts(normalize=True).to_dict()}")
 

@@ -1,5 +1,4 @@
-"""
-Database Initialization Script
+"""Database Initialization Script
 ==============================
 Creates all tables and default admin user.
 """
@@ -11,9 +10,9 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from backend.database import engine, get_db_context, get_db_info, DATABASE_URL
-from backend.models import Base, User, UserRole
 from backend.auth import hash_password
+from backend.database import engine, get_db_context, get_db_info
+from backend.models import Base, User, UserRole
 
 
 def create_tables():
@@ -23,17 +22,17 @@ def create_tables():
     print("[OK] All tables created successfully")
 
 
-def create_default_admin(username: str = "admin", password: str = "admin123", 
+def create_default_admin(username: str = "admin", password: str = "admin123",
                          email: str = "admin@creditscoring.local"):
     """Create default admin user if not exists."""
     with get_db_context() as db:
         # Check if admin exists
         existing_admin = db.query(User).filter(User.username == username).first()
-        
+
         if existing_admin:
             print(f"[SKIP] Admin user '{username}' already exists")
             return existing_admin
-        
+
         # Create admin user
         admin = User(
             username=username,
@@ -45,13 +44,13 @@ def create_default_admin(username: str = "admin", password: str = "admin123",
         db.add(admin)
         db.commit()
         db.refresh(admin)
-        
-        print(f"[OK] Admin user created:")
+
+        print("[OK] Admin user created:")
         print(f"     Username: {username}")
         print(f"     Password: {password}")
         print(f"     Email: {email}")
-        print(f"     Role: ADMIN")
-        
+        print("     Role: ADMIN")
+
         return admin
 
 
@@ -61,11 +60,11 @@ def create_default_analyst(username: str = "analyst", password: str = "analyst12
     with get_db_context() as db:
         # Check if analyst exists
         existing = db.query(User).filter(User.username == username).first()
-        
+
         if existing:
             print(f"[SKIP] Analyst user '{username}' already exists")
             return existing
-        
+
         # Create analyst user
         analyst = User(
             username=username,
@@ -77,13 +76,13 @@ def create_default_analyst(username: str = "analyst", password: str = "analyst12
         db.add(analyst)
         db.commit()
         db.refresh(analyst)
-        
-        print(f"[OK] Analyst user created:")
+
+        print("[OK] Analyst user created:")
         print(f"     Username: {username}")
         print(f"     Password: {password}")
         print(f"     Email: {email}")
-        print(f"     Role: ANALYST")
-        
+        print("     Role: ANALYST")
+
         return analyst
 
 
@@ -99,35 +98,35 @@ def list_tables():
 
 
 def init_database(create_users: bool = True):
-    """
-    Initialize the database with tables and default users.
+    """Initialize the database with tables and default users.
     
     Args:
         create_users: Whether to create default users
+
     """
     print("=" * 60)
     print("DATABASE INITIALIZATION")
     print("=" * 60)
-    
+
     # Show database info
     db_info = get_db_info()
     print(f"\nDatabase: {db_info['database_url']}")
     print(f"Type: {'SQLite' if db_info['is_sqlite'] else 'PostgreSQL'}")
-    
+
     # Create tables
     print()
     create_tables()
-    
+
     # List tables
     list_tables()
-    
+
     # Create default users
     if create_users:
         print()
         print("Creating default users...")
         create_default_admin()
         create_default_analyst()
-    
+
     print()
     print("=" * 60)
     print("[OK] DATABASE INITIALIZATION COMPLETE")
@@ -136,14 +135,14 @@ def init_database(create_users: bool = True):
 
 if __name__ == "__main__":
     import argparse
-    
+
     parser = argparse.ArgumentParser(description="Initialize Credit Scoring Database")
-    parser.add_argument("--no-users", action="store_true", 
+    parser.add_argument("--no-users", action="store_true",
                         help="Skip creating default users")
     parser.add_argument("--tables-only", action="store_true",
                         help="Only create tables, no users")
-    
+
     args = parser.parse_args()
-    
+
     create_users = not (args.no_users or args.tables_only)
     init_database(create_users=create_users)

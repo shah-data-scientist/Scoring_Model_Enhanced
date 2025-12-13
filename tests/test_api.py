@@ -1,11 +1,10 @@
-"""
-Tests for FastAPI endpoints.
+"""Tests for FastAPI endpoints.
 
 Run with: poetry run pytest tests/test_api.py -v
 """
+import numpy as np
 import pytest
 from fastapi.testclient import TestClient
-import numpy as np
 
 from api.app import app
 
@@ -213,15 +212,15 @@ class TestBatchPredictionEndpoint:
         """Test batch prediction with missing required columns."""
         import json
         from pathlib import Path
-        
-        PROJECT_ROOT = Path(__file__).parent.parent.parent
+
+        PROJECT_ROOT = Path(__file__).parent.parent
         CONFIG_DIR = PROJECT_ROOT / "config"
-        with open(CONFIG_DIR / "all_raw_features.json", 'r') as f:
+        with open(CONFIG_DIR / "all_raw_features.json") as f:
             ALL_RAW_FEATURES = json.load(f)
 
         # Create features with some columns missing
         features_with_missing_cols = [col for col in ALL_RAW_FEATURES if col != "SK_ID_CURR"] # Example missing column
-        
+
         # Ensure that the features list is not empty, otherwise the pydantic validation will fail first
         if not features_with_missing_cols:
             pytest.skip("Not enough features to test missing columns without emptying the list.")
@@ -244,9 +243,9 @@ class TestBatchPredictionEndpoint:
         # all_raw_features length
         num_expected_features = len(ALL_RAW_FEATURES)
         num_missing_features = 1
-        
+
         malformed_features = [np.random.random(num_expected_features - num_missing_features).tolist()]
-        
+
         data = {
             "features": malformed_features
         }

@@ -1,5 +1,4 @@
-"""
-Map Model Features to Raw Input Features.
+"""Map Model Features to Raw Input Features.
 
 This script:
 1. Loads the best available model
@@ -8,13 +7,13 @@ This script:
 4. Identifies critical RAW features from original CSV files
 5. Creates validation configuration for API
 """
-import joblib
-import pandas as pd
-import numpy as np
 import json
 import sys
-from pathlib import Path
 from collections import defaultdict
+from pathlib import Path
+
+import joblib
+import pandas as pd
 
 # Add project root to Python path
 PROJECT_ROOT = Path(__file__).parent.parent.parent
@@ -57,8 +56,7 @@ def load_model_and_importance():
     return model, importance_df
 
 def analyze_feature_sources(model_features):
-    """
-    Analyze which raw CSV files and columns are needed for each model feature.
+    """Analyze which raw CSV files and columns are needed for each model feature.
 
     This is based on understanding the preprocessing pipeline:
     - Direct features: come directly from application.csv
@@ -160,7 +158,7 @@ def extract_categorical_base(feature_name):
                 return '_'.join(parts[:i])
         return '_'.join(parts[:-1])
 
-    elif feature_name.startswith(('CODE_', 'FLAG_', 'WALLSMATERIAL_', 'HOUSETYPE_')):
+    if feature_name.startswith(('CODE_', 'FLAG_', 'WALLSMATERIAL_', 'HOUSETYPE_')):
         # Usually: PREFIX_COLUMN_value
         return '_'.join(parts[:-1])
 
@@ -200,8 +198,7 @@ def extract_boolean_raw_features(feature_name):
     return []
 
 def consolidate_raw_features(raw_feature_map, importance_df, threshold=0.85):
-    """
-    Consolidate all raw features needed and identify critical ones.
+    """Consolidate all raw features needed and identify critical ones.
     """
     print("\nConsolidating raw features...")
 
@@ -257,7 +254,7 @@ def consolidate_raw_features(raw_feature_map, importance_df, threshold=0.85):
 
     print(f"  Total raw features needed: {len(feature_importance_map)}")
     print(f"  Critical raw features: {sum(len(v) for v in critical_raw_features.values())}")
-    print(f"\n  Raw features by file:")
+    print("\n  Raw features by file:")
     for file in sorted(raw_features_by_file.keys()):
         total = len(raw_features_by_file[file])
         critical = len(critical_raw_features.get(file, set()))
@@ -336,7 +333,7 @@ def main():
         # Load model and get feature importance
         model, importance_df = load_model_and_importance()
 
-        print(f"\nTop 10 model features:")
+        print("\nTop 10 model features:")
         for idx, row in importance_df.head(10).iterrows():
             print(f"  {row['model_feature']:50s} {row['importance']:.6f} ({row['cumulative_importance']*100:5.2f}%)")
 
@@ -363,7 +360,7 @@ def main():
         print(f"Model features analyzed: {len(model_features)}")
         print(f"Total raw features needed: {sum(len(v) for v in raw_features_by_file.values())}")
         print(f"Critical raw features: {sum(len(v) for v in critical_raw_features.values())}")
-        print(f"\nCritical raw features by file:")
+        print("\nCritical raw features by file:")
         for file in sorted(critical_raw_features.keys()):
             print(f"  {file:30s} {len(critical_raw_features[file]):3d} features")
             # Show first 10

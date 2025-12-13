@@ -12,7 +12,8 @@ This index provides quick access to all project documentation.
 1. **[README.md](../README.md)** - Project overview and quick start
 2. **[USER_GUIDE.md](USER_GUIDE.md)** - Complete user guide (installation, services, API, troubleshooting)
 3. **[TECHNICAL_GUIDE.md](TECHNICAL_GUIDE.md)** - Technical details (model, architecture, deployment)
-4. **[MODEL_MONITORING.md](MODEL_MONITORING.md)** - Production monitoring guide
+4. **[DATABASE_SCHEMA.md](DATABASE_SCHEMA.md)** - Database structure and tables
+5. **[MODEL_MONITORING.md](MODEL_MONITORING.md)** - Production monitoring guide
 
 ### Presentations (For Stakeholders)
 5. **[Business Presentation](presentations/BUSINESS_PRESENTATION.md)** - Executive summary, ROI, implementation plan (14 sections)
@@ -123,10 +124,10 @@ Key documents:
 **Start here**: [Technical Presentation](presentations/TECHNICAL_PRESENTATION.md)
 
 Key documents:
-- System architecture
-- API implementation
-- Monitoring setup
-- Deployment guide
+- [Technical Guide](TECHNICAL_GUIDE.md)
+- [Database Schema](DATABASE_SCHEMA.md)
+- [Monitoring Guide](MODEL_MONITORING.md)
+- [Deployment Guide](../DEPLOYMENT_GUIDE.md)
 
 ### 🔬 Data Scientists
 **Start here**: [MLflow UI](http://localhost:5000)

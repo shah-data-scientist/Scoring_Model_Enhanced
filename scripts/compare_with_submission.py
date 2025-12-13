@@ -1,6 +1,7 @@
 """Compare end_user_tests predictions with submission.csv."""
-import pandas as pd
 from pathlib import Path
+
+import pandas as pd
 
 PROJECT_ROOT = Path(__file__).parent.parent
 

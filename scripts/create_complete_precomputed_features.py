@@ -1,7 +1,8 @@
 """Create complete precomputed features including train, val, AND test sets."""
-import pandas as pd
 import time
 from pathlib import Path
+
+import pandas as pd
 
 PROJECT_ROOT = Path(__file__).parent.parent
 
@@ -71,10 +72,10 @@ if duplicates > 0:
     X_combined = X_combined.drop_duplicates(subset=['SK_ID_CURR'], keep='first')
     print(f"  After dedup: {len(X_combined):,} applications")
 else:
-    print(f"  [OK] No duplicate SK_ID_CURR values")
+    print("  [OK] No duplicate SK_ID_CURR values")
 
 # Save to Parquet
-print(f"\n[7/7] Saving to Parquet...")
+print("\n[7/7] Saving to Parquet...")
 start = time.time()
 X_combined.to_parquet(parquet_path, index=False, compression='snappy')
 parquet_time = time.time() - start
@@ -89,6 +90,7 @@ print(f"  Loaded {len(test_df):,} rows × {len(test_df.columns)} columns in {loa
 
 # File size comparison
 import os
+
 train_size = os.path.getsize(data_dir / 'X_train.csv') / (1024**2)
 val_size = os.path.getsize(data_dir / 'X_val.csv') / (1024**2)
 test_size = os.path.getsize(data_dir / 'X_test.csv') / (1024**2)

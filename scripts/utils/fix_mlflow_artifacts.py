@@ -1,16 +1,15 @@
-"""
-Fix MLflow artifacts - properly log them to the database.
+"""Fix MLflow artifacts - properly log them to the database.
 
 This script logs existing artifact files to MLflow so they appear in the UI.
 """
 import warnings
+
 warnings.filterwarnings('ignore')
+
+from pathlib import Path
 
 import mlflow
 from mlflow import MlflowClient
-from pathlib import Path
-import tempfile
-import shutil
 
 # Setup
 PROJECT_ROOT = Path(__file__).parent.parent.parent
@@ -18,12 +17,12 @@ MLRUNS_DIR = PROJECT_ROOT / 'mlruns'
 mlflow.set_tracking_uri(f"sqlite:///{MLRUNS_DIR}/mlflow.db")
 
 def log_artifacts_for_run(run_id, run_name):
-    """
-    Log existing artifact files to MLflow database.
+    """Log existing artifact files to MLflow database.
 
     Args:
         run_id: MLflow run ID
         run_name: Name of run for logging
+
     """
     print(f"\nProcessing: {run_name}")
     print(f"  Run ID: {run_id}")
@@ -32,14 +31,14 @@ def log_artifacts_for_run(run_id, run_name):
     artifact_dir = MLRUNS_DIR / run_id[:2] / run_id / 'artifacts'
 
     if not artifact_dir.exists():
-        print(f"  [SKIP] No artifacts directory found")
+        print("  [SKIP] No artifacts directory found")
         return
 
     # Find artifact files
     artifact_files = list(artifact_dir.glob('*.png')) + list(artifact_dir.glob('*.csv'))
 
     if not artifact_files:
-        print(f"  [SKIP] No artifact files found")
+        print("  [SKIP] No artifact files found")
         return
 
     print(f"  Found {len(artifact_files)} artifact files")

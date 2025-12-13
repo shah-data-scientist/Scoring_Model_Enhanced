@@ -1,15 +1,16 @@
-"""
-Comprehensive analysis of all MLflow runs
+"""Comprehensive analysis of all MLflow runs
 Identifies what artifacts exist and what's missing
 """
 import sys
 from pathlib import Path
+
 sys.path.append(str(Path(__file__).parent))
 
 import mlflow
-from mlflow.tracking import MlflowClient
-from src.config import MLFLOW_TRACKING_URI
 import pandas as pd
+from mlflow.tracking import MlflowClient
+
+from src.config import MLFLOW_TRACKING_URI
 
 mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
 client = MlflowClient()
@@ -81,13 +82,13 @@ df = pd.DataFrame(all_runs_data)
 
 print(f'\nTotal Active Runs: {len(df)}')
 print(f'Experiments: {df["experiment"].nunique()}')
-print(f'\nRuns by Status:')
+print('\nRuns by Status:')
 print(df['status'].value_counts())
 
 print(f'\nRuns with Artifacts: {(df["artifact_count"] > 0).sum()}')
 print(f'Runs without Artifacts: {(df["artifact_count"] == 0).sum()}')
 
-print(f'\nTop 10 Runs by ROC-AUC:')
+print('\nTop 10 Runs by ROC-AUC:')
 top_runs = df.nlargest(10, 'roc_auc')[['run_name', 'roc_auc', 'feature_strategy', 'sampling_strategy', 'artifacts']]
 print(top_runs.to_string(index=False))
 

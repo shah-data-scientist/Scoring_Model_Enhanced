@@ -1,34 +1,29 @@
-"""
-MLflow utility functions for the Credit Scoring Model project.
+"""MLflow utility functions for the Credit Scoring Model project.
 
 This module provides helper functions for standardized MLflow tracking,
 experiment management, and model registry operations.
 """
+from datetime import datetime
+from pathlib import Path
+from typing import Any
+
 import mlflow
 import mlflow.sklearn
-from pathlib import Path
-from typing import Dict, Any, Optional, List
 import pandas as pd
-from datetime import datetime
 
 from .config import (
-    MLFLOW_TRACKING_URI,
     EXPERIMENTS,
+    MLFLOW_TRACKING_URI,
     REGISTERED_MODELS,
-    get_baseline_tags,
-    get_optimization_tags,
-    get_production_tags,
-    get_artifact_path
+    get_artifact_path,
 )
-
 
 # ============================================================================
 # MLflow Setup
 # ============================================================================
 
 def setup_mlflow(experiment_key: str = "baseline"):
-    """
-    Setup MLflow with standardized configuration.
+    """Setup MLflow with standardized configuration.
 
     Args:
         experiment_key: Key from EXPERIMENTS dict ('baseline', 'optimization', etc.)
@@ -39,6 +34,7 @@ def setup_mlflow(experiment_key: str = "baseline"):
     Example:
         >>> exp = setup_mlflow('baseline')
         >>> print(f"Experiment: {exp.name}")
+
     """
     mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
 
@@ -57,9 +53,8 @@ def setup_mlflow(experiment_key: str = "baseline"):
 # Run Management
 # ============================================================================
 
-def start_run_with_tags(run_name: str, tags: Dict[str, str], **kwargs):
-    """
-    Start MLflow run with standardized tags.
+def start_run_with_tags(run_name: str, tags: dict[str, str], **kwargs):
+    """Start MLflow run with standardized tags.
 
     Args:
         run_name: Name of the run
@@ -73,6 +68,7 @@ def start_run_with_tags(run_name: str, tags: Dict[str, str], **kwargs):
         >>> tags = get_baseline_tags('lgbm', author='john_doe')
         >>> with start_run_with_tags('lgbm_v1_baseline', tags) as run:
         ...     # Training code here
+
     """
     run = mlflow.start_run(run_name=run_name, **kwargs)
 
@@ -84,8 +80,7 @@ def start_run_with_tags(run_name: str, tags: Dict[str, str], **kwargs):
 
 
 def log_model_with_signature(model, model_name: str, X_sample: pd.DataFrame):
-    """
-    Log model with input/output signature for better tracking.
+    """Log model with input/output signature for better tracking.
 
     Args:
         model: Trained model
@@ -94,6 +89,7 @@ def log_model_with_signature(model, model_name: str, X_sample: pd.DataFrame):
 
     Example:
         >>> log_model_with_signature(model, "model", X_train.head())
+
     """
     from mlflow.models.signature import infer_signature
 
@@ -109,9 +105,8 @@ def log_model_with_signature(model, model_name: str, X_sample: pd.DataFrame):
     )
 
 
-def log_metrics_with_prefix(metrics: Dict[str, float], prefix: str = ""):
-    """
-    Log multiple metrics with optional prefix.
+def log_metrics_with_prefix(metrics: dict[str, float], prefix: str = ""):
+    """Log multiple metrics with optional prefix.
 
     Args:
         metrics: Dictionary of metric names and values
@@ -121,6 +116,7 @@ def log_metrics_with_prefix(metrics: Dict[str, float], prefix: str = ""):
         >>> metrics = {'roc_auc': 0.78, 'f1': 0.29}
         >>> log_metrics_with_prefix(metrics, prefix='val_')
         # Logs: val_roc_auc, val_f1
+
     """
     for name, value in metrics.items():
         if isinstance(value, (int, float)):
@@ -128,24 +124,22 @@ def log_metrics_with_prefix(metrics: Dict[str, float], prefix: str = ""):
             mlflow.log_metric(metric_name, value)
 
 
-def log_params_clean(params: Dict[str, Any]):
-    """
-    Log parameters, handling non-serializable types.
+def log_params_clean(params: dict[str, Any]):
+    """Log parameters, handling non-serializable types.
 
     Args:
         params: Dictionary of parameters
 
     Example:
         >>> log_params_clean({'max_depth': 6, 'class_weight': 'balanced'})
+
     """
     clean_params = {}
     for key, value in params.items():
         # Convert non-serializable types
         if value is None:
             clean_params[key] = "None"
-        elif isinstance(value, (list, tuple)):
-            clean_params[key] = str(value)
-        elif isinstance(value, dict):
+        elif isinstance(value, (list, tuple)) or isinstance(value, dict):
             clean_params[key] = str(value)
         else:
             clean_params[key] = value
@@ -158,8 +152,7 @@ def log_params_clean(params: Dict[str, Any]):
 # ============================================================================
 
 def log_plot_artifact(fig, model_name: str, plot_type: str):
-    """
-    Save and log a matplotlib figure as an artifact.
+    """Save and log a matplotlib figure as an artifact.
 
     Args:
         fig: Matplotlib figure
@@ -169,6 +162,7 @@ def log_plot_artifact(fig, model_name: str, plot_type: str):
     Example:
         >>> fig = plot_roc_curve(y_val, y_pred_proba, 'lgbm_v1')
         >>> log_plot_artifact(fig, 'lgbm_v1_baseline', 'roc_curve')
+
     """
     # Create plots directory if it doesn't exist
     Path('plots').mkdir(exist_ok=True)
@@ -188,8 +182,7 @@ def log_plot_artifact(fig, model_name: str, plot_type: str):
 
 
 def log_dataframe_artifact(df: pd.DataFrame, model_name: str, artifact_type: str):
-    """
-    Save and log a pandas DataFrame as an artifact.
+    """Save and log a pandas DataFrame as an artifact.
 
     Args:
         df: DataFrame to save
@@ -199,6 +192,7 @@ def log_dataframe_artifact(df: pd.DataFrame, model_name: str, artifact_type: str
     Example:
         >>> predictions = pd.DataFrame({'y_true': y_val, 'y_pred': y_pred})
         >>> log_dataframe_artifact(predictions, 'lgbm_v1_baseline', 'predictions')
+
     """
     # Create data directory if it doesn't exist
     Path('data').mkdir(exist_ok=True)
@@ -219,8 +213,7 @@ def log_dataframe_artifact(df: pd.DataFrame, model_name: str, artifact_type: str
 
 def register_model(run_id: str, model_type: str, description: str = "",
                    stage: str = "None") -> Any:
-    """
-    Register a model in MLflow Model Registry.
+    """Register a model in MLflow Model Registry.
 
     Args:
         run_id: MLflow run ID
@@ -234,6 +227,7 @@ def register_model(run_id: str, model_type: str, description: str = "",
     Example:
         >>> run_id = mlflow.active_run().info.run_id
         >>> register_model(run_id, 'lgbm', 'Optimized with Random Search', 'Staging')
+
     """
     # Get standardized model name
     model_name = REGISTERED_MODELS.get(model_type, f"credit_scoring_{model_type}")
@@ -269,8 +263,7 @@ def register_model(run_id: str, model_type: str, description: str = "",
 
 def promote_model_to_production(model_type: str, version: int,
                                 archive_existing: bool = True):
-    """
-    Promote a model version to Production stage.
+    """Promote a model version to Production stage.
 
     Args:
         model_type: Type of model ('lgbm', 'xgboost', etc.)
@@ -279,6 +272,7 @@ def promote_model_to_production(model_type: str, version: int,
 
     Example:
         >>> promote_model_to_production('lgbm', version=3, archive_existing=True)
+
     """
     model_name = REGISTERED_MODELS.get(model_type, f"credit_scoring_{model_type}")
     client = mlflow.tracking.MlflowClient()
@@ -294,8 +288,7 @@ def promote_model_to_production(model_type: str, version: int,
 
 
 def get_production_model(model_type: str):
-    """
-    Load the current production model.
+    """Load the current production model.
 
     Args:
         model_type: Type of model ('lgbm', 'xgboost', etc.)
@@ -305,6 +298,7 @@ def get_production_model(model_type: str):
 
     Example:
         >>> model = get_production_model('lgbm')
+
     """
     model_name = REGISTERED_MODELS.get(model_type, f"credit_scoring_{model_type}")
     model_uri = f"models:/{model_name}/Production"
@@ -323,9 +317,8 @@ def get_production_model(model_type: str):
 # ============================================================================
 
 def get_best_run(experiment_name: str, metric: str = "roc_auc",
-                ascending: bool = False) -> Optional[Any]:
-    """
-    Get the best run from an experiment based on a metric.
+                ascending: bool = False) -> Any | None:
+    """Get the best run from an experiment based on a metric.
 
     Args:
         experiment_name: Name of the experiment
@@ -338,6 +331,7 @@ def get_best_run(experiment_name: str, metric: str = "roc_auc",
     Example:
         >>> best_run = get_best_run('credit_scoring_01_baseline', 'roc_auc')
         >>> print(f"Best ROC-AUC: {best_run.data.metrics['roc_auc']:.4f}")
+
     """
     client = mlflow.tracking.MlflowClient()
 
@@ -361,9 +355,8 @@ def get_best_run(experiment_name: str, metric: str = "roc_auc",
 
 
 def compare_experiment_runs(experiment_name: str,
-                           metrics: List[str] = None) -> pd.DataFrame:
-    """
-    Get a comparison DataFrame of all runs in an experiment.
+                           metrics: list[str] = None) -> pd.DataFrame:
+    """Get a comparison DataFrame of all runs in an experiment.
 
     Args:
         experiment_name: Name of the experiment
@@ -375,6 +368,7 @@ def compare_experiment_runs(experiment_name: str,
     Example:
         >>> df = compare_experiment_runs('credit_scoring_01_baseline',
         ...                             metrics=['roc_auc', 'f1_score'])
+
     """
     client = mlflow.tracking.MlflowClient()
 
@@ -416,8 +410,7 @@ def compare_experiment_runs(experiment_name: str,
 # ============================================================================
 
 def delete_experiment_runs(experiment_name: str, keep_latest: int = 0):
-    """
-    Delete runs from an experiment, optionally keeping the latest N runs.
+    """Delete runs from an experiment, optionally keeping the latest N runs.
 
     Args:
         experiment_name: Name of the experiment
@@ -425,6 +418,7 @@ def delete_experiment_runs(experiment_name: str, keep_latest: int = 0):
 
     Example:
         >>> delete_experiment_runs('credit_scoring_01_baseline', keep_latest=5)
+
     """
     client = mlflow.tracking.MlflowClient()
 
@@ -456,9 +450,8 @@ def delete_experiment_runs(experiment_name: str, keep_latest: int = 0):
 # Utilities
 # ============================================================================
 
-def print_run_info(run_id: Optional[str] = None):
-    """
-    Print information about a run.
+def print_run_info(run_id: str | None = None):
+    """Print information about a run.
 
     Args:
         run_id: Run ID (None = active run)
@@ -466,6 +459,7 @@ def print_run_info(run_id: Optional[str] = None):
     Example:
         >>> with mlflow.start_run():
         ...     print_run_info()
+
     """
     if run_id is None:
         run = mlflow.active_run()
@@ -484,11 +478,11 @@ def print_run_info(run_id: Optional[str] = None):
     print(f"Run Name: {run.data.tags.get('mlflow.runName', 'N/A')}")
     print(f"Experiment ID: {run.info.experiment_id}")
     print(f"Status: {run.info.status}")
-    print(f"\nTags:")
+    print("\nTags:")
     for key, value in run.data.tags.items():
         if not key.startswith('mlflow.'):
             print(f"  {key}: {value}")
-    print(f"\nMetrics:")
+    print("\nMetrics:")
     for key, value in run.data.metrics.items():
         print(f"  {key}: {value:.4f}")
     print("="*80)

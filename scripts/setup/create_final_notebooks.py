@@ -1,14 +1,13 @@
-"""
-Create the final two notebooks: Hyperparameter Optimization and Model Interpretation.
+"""Create the final two notebooks: Hyperparameter Optimization and Model Interpretation.
 """
 
-import nbformat as nbf
 from pathlib import Path
+
+import nbformat as nbf
 
 
 def create_hyperparameter_optimization_notebook():
     """Create Hyperparameter Optimization notebook."""
-
     nb = nbf.v4.new_notebook()
     cells = []
 
@@ -527,7 +526,6 @@ Compare all optimization runs and download the best model!"""))
 
 def create_model_interpretation_notebook():
     """Create Model Interpretation notebook with SHAP."""
-
     nb = nbf.v4.new_notebook()
     cells = []
 

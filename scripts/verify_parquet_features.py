@@ -1,7 +1,7 @@
 """Verify the Parquet file contains the exact features we just loaded."""
-import pandas as pd
-import numpy as np
 from pathlib import Path
+
+import pandas as pd
 
 PROJECT_ROOT = Path(__file__).parent.parent
 
@@ -43,14 +43,14 @@ for sample_id in sample_ids:
     # Get from parquet
     parquet_row = parquet_df[parquet_df['SK_ID_CURR'] == sample_id]
     if len(parquet_row) == 0:
-        print(f"  [ERROR] Not found in Parquet!")
+        print("  [ERROR] Not found in Parquet!")
         continue
     parquet_row = parquet_row.iloc[0]
 
     # Get from combined original
     original_row = X_combined[X_combined['SK_ID_CURR'] == sample_id]
     if len(original_row) == 0:
-        print(f"  [ERROR] Not found in X_combined!")
+        print("  [ERROR] Not found in X_combined!")
         continue
     original_row = original_row.iloc[0]
 
@@ -66,14 +66,12 @@ for sample_id in sample_ids:
         if pd.isna(parquet_val) and pd.isna(original_val):
             continue
 
-        if pd.isna(parquet_val) or pd.isna(original_val):
-            differences.append((feat, original_val, parquet_val))
-        elif abs(parquet_val - original_val) > 0.0001:
+        if pd.isna(parquet_val) or pd.isna(original_val) or abs(parquet_val - original_val) > 0.0001:
             differences.append((feat, original_val, parquet_val))
 
     if differences:
         print(f"  [ERROR] {len(differences)} feature differences found!")
-        print(f"  First 5 differences:")
+        print("  First 5 differences:")
         for feat, orig, parq in differences[:5]:
             print(f"    {feat}: Original={orig}, Parquet={parq}")
     else:

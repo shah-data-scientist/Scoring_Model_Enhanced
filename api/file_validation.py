@@ -1,5 +1,4 @@
-"""
-File Validation Module for Batch Predictions
+"""File Validation Module for Batch Predictions
 
 Validates uploaded CSV files against requirements:
 - All 7 required files present
@@ -10,18 +9,10 @@ Validates uploaded CSV files against requirements:
 
 
 import json
-
 from pathlib import Path
 
-from typing import Dict, List, Tuple, Set
-
 import pandas as pd
-
-from fastapi import UploadFile, HTTPException, status
-
-import numpy as np # Added numpy import
-
-
+from fastapi import HTTPException, UploadFile, status
 
 # Load configuration
 
@@ -33,7 +24,7 @@ CONFIG_DIR = PROJECT_ROOT / "config"
 
 # Load required files configuration
 
-with open(CONFIG_DIR / "required_files.json", 'r') as f:
+with open(CONFIG_DIR / "required_files.json") as f:
 
     REQUIRED_FILES_CONFIG = json.load(f)
 
@@ -41,7 +32,7 @@ with open(CONFIG_DIR / "required_files.json", 'r') as f:
 
 # Load critical features configuration
 
-with open(CONFIG_DIR / "critical_raw_features.json", 'r') as f:
+with open(CONFIG_DIR / "critical_raw_features.json") as f:
 
     CRITICAL_FEATURES_CONFIG = json.load(f)
 
@@ -64,35 +55,25 @@ CRITICAL_THRESHOLD = CRITICAL_FEATURES_CONFIG["_metadata"]["threshold"]
 
 
 class FileValidationError(Exception):
-
     """Custom exception for file validation errors."""
 
-    pass
 
 
 
 
 
-def validate_file_presence(uploaded_files: Dict[str, UploadFile]) -> Tuple[bool, List[str]]:
-
-    """
-
-    Validate that all required CSV files are present.
-
-
+def validate_file_presence(uploaded_files: dict[str, UploadFile]) -> tuple[bool, list[str]]:
+    """Validate that all required CSV files are present.
 
     Args:
-
         uploaded_files: Dictionary of {filename: UploadFile}
 
 
 
     Returns:
-
         Tuple of (is_valid, missing_files)
 
     """
-
     uploaded_filenames = set(uploaded_files.keys())
 
     missing_files = REQUIRED_FILES - uploaded_filenames
@@ -105,26 +86,18 @@ def validate_file_presence(uploaded_files: Dict[str, UploadFile]) -> Tuple[bool,
 
 
 
-def validate_application_columns(df: pd.DataFrame) -> Tuple[bool, List[str], float]:
-
-    """
-
-    Validate that critical columns are present in application.csv.
-
-
+def validate_application_columns(df: pd.DataFrame) -> tuple[bool, list[str], float]:
+    """Validate that critical columns are present in application.csv.
 
     Args:
-
         df: Application DataFrame
 
 
 
     Returns:
-
         Tuple of (is_valid, missing_columns, coverage_percentage)
 
     """
-
     df_columns = set(df.columns)
 
     missing_columns = CRITICAL_APPLICATION_COLUMNS - df_columns
@@ -152,15 +125,9 @@ def validate_application_columns(df: pd.DataFrame) -> Tuple[bool, List[str], flo
 
 
 def validate_csv_structure(file: UploadFile, filename: str) -> pd.DataFrame:
-
-    """
-
-    Validate CSV file structure and load into DataFrame.
-
-
+    """Validate CSV file structure and load into DataFrame.
 
     Args:
-
         file: Uploaded CSV file
 
         filename: Name of the file
@@ -168,17 +135,14 @@ def validate_csv_structure(file: UploadFile, filename: str) -> pd.DataFrame:
 
 
     Returns:
-
         Loaded DataFrame
 
 
 
     Raises:
-
         FileValidationError: If file cannot be read or is invalid
 
     """
-
     try:
 
         # Read CSV
@@ -241,32 +205,23 @@ def validate_csv_structure(file: UploadFile, filename: str) -> pd.DataFrame:
 
 
 
-def validate_all_files(uploaded_files: Dict[str, UploadFile]) -> Dict[str, pd.DataFrame]:
-
-    """
-
-    Comprehensive validation of all uploaded CSV files.
-
-
+def validate_all_files(uploaded_files: dict[str, UploadFile]) -> dict[str, pd.DataFrame]:
+    """Comprehensive validation of all uploaded CSV files.
 
     Args:
-
         uploaded_files: Dictionary of {filename: UploadFile}
 
 
 
     Returns:
-
         Dictionary of {filename: DataFrame}
 
 
 
     Raises:
-
         HTTPException: If validation fails
 
     """
-
     # Step 1: Check file presence
 
     files_present, missing_files = validate_file_presence(uploaded_files)
@@ -375,26 +330,18 @@ def validate_all_files(uploaded_files: Dict[str, UploadFile]) -> Dict[str, pd.Da
 
 
 
-def get_file_summaries(dataframes: Dict[str, pd.DataFrame]) -> Dict[str, Dict]:
-
-    """
-
-    Get summary information for uploaded files.
-
-
+def get_file_summaries(dataframes: dict[str, pd.DataFrame]) -> dict[str, dict]:
+    """Get summary information for uploaded files.
 
     Args:
-
         dataframes: Dictionary of {filename: DataFrame}
 
 
 
     Returns:
-
         Dictionary of file summaries
 
     """
-
     summaries = {}
 
 
@@ -423,26 +370,18 @@ def get_file_summaries(dataframes: Dict[str, pd.DataFrame]) -> Dict[str, Dict]:
 
 
 
-def validate_sk_id_consistency(dataframes: Dict[str, pd.DataFrame]) -> Tuple[bool, str]:
-
-    """
-
-    Validate that SK_ID_CURR values in auxiliary tables exist in application.csv.
-
-
+def validate_sk_id_consistency(dataframes: dict[str, pd.DataFrame]) -> tuple[bool, str]:
+    """Validate that SK_ID_CURR values in auxiliary tables exist in application.csv.
 
     Args:
-
         dataframes: Dictionary of {filename: DataFrame}
 
 
 
     Returns:
-
         Tuple of (is_valid, message)
 
     """
-
     if 'application.csv' not in dataframes:
 
         return False, "application.csv not found"
@@ -499,9 +438,8 @@ def validate_sk_id_consistency(dataframes: Dict[str, pd.DataFrame]) -> Tuple[boo
 
         return True, "Warning: " + "; ".join(warnings)
 
-    else:
 
-        return True, "All SK_ID_CURR values are consistent"
+    return True, "All SK_ID_CURR values are consistent"
 
 
 
@@ -509,7 +447,7 @@ def validate_sk_id_consistency(dataframes: Dict[str, pd.DataFrame]) -> Tuple[boo
 
 # Load all raw features
 
-with open(CONFIG_DIR / "all_raw_features.json", 'r') as f:
+with open(CONFIG_DIR / "all_raw_features.json") as f:
 
     ALL_RAW_FEATURES = json.load(f)
 
@@ -518,21 +456,14 @@ with open(CONFIG_DIR / "all_raw_features.json", 'r') as f:
 
 
 def validate_input_data(df: pd.DataFrame) -> pd.DataFrame:
-
-    """
-
-    Validates and cleans the input DataFrame for prediction.
-
-
+    """Validates and cleans the input DataFrame for prediction.
 
     Args:
-
         df (pd.DataFrame): The input DataFrame.
 
 
 
     Returns:
-
         pd.DataFrame: The validated and cleaned DataFrame with columns
 
                       ordered as in ALL_RAW_FEATURES.
@@ -540,11 +471,9 @@ def validate_input_data(df: pd.DataFrame) -> pd.DataFrame:
 
 
     Raises:
-
         ValueError: If the DataFrame is empty or contains missing required columns.
 
     """
-
     if df.empty:
 
         raise ValueError("Input DataFrame is empty.")
@@ -591,7 +520,7 @@ def validate_input_data(df: pd.DataFrame) -> pd.DataFrame:
 
     df = df[ALL_RAW_FEATURES]
 
-    
+
 
     return df
 

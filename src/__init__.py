@@ -1,5 +1,4 @@
-"""
-Credit Scoring Model - Source Code Package
+"""Credit Scoring Model - Source Code Package
 
 This package contains reusable utilities for:
 - Data preprocessing

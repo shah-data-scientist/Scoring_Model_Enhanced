@@ -1,7 +1,8 @@
 """Diagnose why test set predictions differ."""
-import pandas as pd
 import pickle
 from pathlib import Path
+
+import pandas as pd
 
 PROJECT_ROOT = Path(__file__).parent.parent
 
@@ -87,7 +88,7 @@ print(f"Number of features expected: {len(model.feature_name_)}")
 # Check if we can load the test features that were used for submission
 test_features_path = PROJECT_ROOT / 'data' / 'processed' / 'X_test.csv'
 if test_features_path.exists():
-    print(f"\n[FOUND] X_test.csv exists - this contains the features used for submission.csv")
+    print("\n[FOUND] X_test.csv exists - this contains the features used for submission.csv")
     X_test = pd.read_csv(test_features_path)
     print(f"X_test shape: {X_test.shape}")
 

@@ -1,60 +1,55 @@
-"""
-Preprocessing Pipeline for Batch Predictions
+"""Preprocessing Pipeline for Batch Predictions
 
 Wraps the existing preprocessing modules to transform raw CSV data
 into the 189 features required by the production model.
 """
 
-import pandas as pd
-import numpy as np
-from pathlib import Path
-from typing import Dict, Tuple
+import json
 import sys
 import warnings
+from pathlib import Path
+
 import joblib
-import json
+import numpy as np
+import pandas as pd
 
 # Add project root to path
 PROJECT_ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
 # Import preprocessing modules
+from src.domain_features import create_domain_features
 from src.feature_aggregation import (
     aggregate_bureau,
-    aggregate_previous_applications,
-    aggregate_pos_cash,
     aggregate_credit_card,
-    aggregate_installments
+    aggregate_installments,
+    aggregate_pos_cash,
+    aggregate_previous_applications,
 )
-from src.feature_engineering import (
-    encode_categorical_features,
-    clean_column_names
-)
-from src.domain_features import create_domain_features
+from src.feature_engineering import clean_column_names
 
 # Suppress warnings for cleaner output
 warnings.filterwarnings('ignore')
 
 
 class PreprocessingPipeline:
-    """
-    Pipeline to preprocess raw CSV files for batch predictions.
+    """Pipeline to preprocess raw CSV files for batch predictions.
 
     Takes 7 raw CSV files and produces 189 model-ready features.
     """
 
     def __init__(self, feature_names_path: Path = None, use_precomputed: bool = True):
-        """
-        Initialize preprocessing pipeline.
+        """Initialize preprocessing pipeline.
 
         Args:
             feature_names_path: Path to feature_names.csv (189 features in order)
             use_precomputed: If True, use precomputed features for known applications
+
         """
         self.feature_names_path = feature_names_path or (
             PROJECT_ROOT / "data" / "processed" / "feature_names.csv"
         )
-        
+
         # Path to scaler and medians
         self.scaler_path = PROJECT_ROOT / "data" / "processed" / "scaler.joblib"
         self.medians_path = PROJECT_ROOT / "data" / "processed" / "medians.json"
@@ -71,7 +66,7 @@ class PreprocessingPipeline:
         else:
             self.expected_features = None
             print(f"Warning: {self.feature_names_path} not found. Feature order may not match model.")
-            
+
         # Load scaler
         if self.scaler_path.exists():
             try:
@@ -85,7 +80,7 @@ class PreprocessingPipeline:
         # Load medians
         if self.medians_path.exists():
             try:
-                with open(self.medians_path, 'r') as f:
+                with open(self.medians_path) as f:
                     self.medians = json.load(f)
                 print(f"[INFO] Loaded {len(self.medians)} medians from {self.medians_path}")
             except Exception as e:
@@ -123,7 +118,7 @@ class PreprocessingPipeline:
                 self.precomputed_features = X_train.set_index('SK_ID_CURR')
                 print(f"[INFO] Loaded {len(self.precomputed_features)} precomputed feature sets from CSV")
             else:
-                print(f"[WARNING] Precomputed features not found. Will use full preprocessing for all applications.")
+                print("[WARNING] Precomputed features not found. Will use full preprocessing for all applications.")
                 self.precomputed_features = None
 
     def aggregate_data(
@@ -136,8 +131,7 @@ class PreprocessingPipeline:
         credit_card_df: pd.DataFrame = None,
         installments_df: pd.DataFrame = None
     ) -> pd.DataFrame:
-        """
-        Aggregate auxiliary tables and merge with application data.
+        """Aggregate auxiliary tables and merge with application data.
 
         Args:
             application_df: Main application DataFrame
@@ -150,6 +144,7 @@ class PreprocessingPipeline:
 
         Returns:
             Aggregated DataFrame
+
         """
         result_df = application_df.copy()
 
@@ -192,31 +187,31 @@ class PreprocessingPipeline:
         return result_df
 
     def create_engineered_features(self, df: pd.DataFrame) -> pd.DataFrame:
-        """
-        Create domain-specific engineered features.
+        """Create domain-specific engineered features.
 
         Args:
             df: Input DataFrame
 
         Returns:
             DataFrame with engineered features
+
         """
-        print(f"  Creating domain features...")
+        print("  Creating domain features...")
         df = create_domain_features(df)
         print(f"    Features after domain engineering: {len(df.columns)}")
         return df
 
     def encode_and_clean(self, df: pd.DataFrame) -> pd.DataFrame:
-        """
-        Encode categorical features and clean column names.
+        """Encode categorical features and clean column names.
 
         Args:
             df: Input DataFrame
 
         Returns:
             DataFrame with encoded features and clean names
+
         """
-        print(f"  Encoding categorical features...")
+        print("  Encoding categorical features...")
 
         # For prediction, we need to create dummy DataFrame for the encoder
         # to learn the categories, but we won't actually use it
@@ -246,14 +241,13 @@ class PreprocessingPipeline:
         print(f"    Features after encoding: {len(df.columns)}")
 
         # Clean column names
-        print(f"  Cleaning column names...")
+        print("  Cleaning column names...")
         df = clean_column_names(df)
 
         return df
 
     def align_features(self, df: pd.DataFrame) -> pd.DataFrame:
-        """
-        Align features with expected model input (189 features).
+        """Align features with expected model input (189 features).
 
         Handles:
         - Missing features (add as 0)
@@ -265,12 +259,13 @@ class PreprocessingPipeline:
 
         Returns:
             DataFrame with exactly 189 features in correct order
+
         """
         if self.expected_features is None:
             print("  Warning: Cannot align features - expected feature list not loaded")
             return df
 
-        print(f"  Aligning features to model input (189 features)...")
+        print("  Aligning features to model input (189 features)...")
         print(f"    Current features: {len(df.columns)}")
 
         # Drop SK_ID_CURR if present (not a feature)
@@ -307,8 +302,7 @@ class PreprocessingPipeline:
         return df
 
     def impute_missing_values(self, df: pd.DataFrame) -> pd.DataFrame:
-        """
-        Impute missing values using median for numerical features.
+        """Impute missing values using median for numerical features.
         Uses global training medians if available, otherwise batch median.
 
         Args:
@@ -316,8 +310,9 @@ class PreprocessingPipeline:
 
         Returns:
             DataFrame with imputed values
+
         """
-        print(f"  Imputing missing values...")
+        print("  Imputing missing values...")
 
         # Save SK_ID_CURR if present
         sk_id_curr = None
@@ -327,7 +322,7 @@ class PreprocessingPipeline:
 
         # Impute numerical columns
         numerical_cols = df.select_dtypes(include=[np.number]).columns
-        
+
         # Use global medians if available
         if self.medians is not None:
             print("    Using global training medians for imputation")
@@ -362,11 +357,10 @@ class PreprocessingPipeline:
 
     def process(
         self,
-        dataframes: Dict[str, pd.DataFrame],
+        dataframes: dict[str, pd.DataFrame],
         keep_sk_id: bool = True
-    ) -> Tuple[pd.DataFrame, pd.Series]:
-        """
-        Full preprocessing pipeline from raw CSVs to model-ready features.
+    ) -> tuple[pd.DataFrame, pd.Series]:
+        """Full preprocessing pipeline from raw CSVs to model-ready features.
 
         Uses precomputed features for known applications (from training data)
         and processes new applications through the full pipeline.
@@ -377,6 +371,7 @@ class PreprocessingPipeline:
 
         Returns:
             Tuple of (features_df, sk_id_curr_series)
+
         """
         print("\n" + "="*80)
         print("PREPROCESSING PIPELINE")
@@ -407,7 +402,7 @@ class PreprocessingPipeline:
 
             if known_ids:
                 print(f"[INFO] {len(known_ids)}/{n_applications} applications found in precomputed features")
-                print(f"[INFO] Using precomputed features for known applications (100% accurate)\n")
+                print("[INFO] Using precomputed features for known applications (100% accurate)\n")
 
                 # Separate known and unknown applications
                 known_mask = sk_id_curr.isin(known_ids)
@@ -498,8 +493,7 @@ class PreprocessingPipeline:
                     features_df = features_df.drop(columns=['SK_ID_CURR'])
 
                 return features_df, sk_id_curr
-            else:
-                print(f"[INFO] No applications found in precomputed features. Processing all through full pipeline.\n")
+            print("[INFO] No applications found in precomputed features. Processing all through full pipeline.\n")
 
         # If no precomputed features available or no matches, process all through full pipeline
         features_df = self._process_full_pipeline(dataframes, keep_sk_id)
@@ -512,11 +506,10 @@ class PreprocessingPipeline:
 
     def _process_full_pipeline(
         self,
-        dataframes: Dict[str, pd.DataFrame],
+        dataframes: dict[str, pd.DataFrame],
         keep_sk_id: bool = True
     ) -> pd.DataFrame:
-        """
-        Process applications through the full preprocessing pipeline.
+        """Process applications through the full preprocessing pipeline.
 
         Args:
             dataframes: Dictionary of {filename: DataFrame}
@@ -524,6 +517,7 @@ class PreprocessingPipeline:
 
         Returns:
             DataFrame with processed features
+
         """
         application_df = dataframes.get('application.csv')
         bureau_df = dataframes.get('bureau.csv')
@@ -565,7 +559,7 @@ class PreprocessingPipeline:
         # Step 5: Align features with model expectations
         print("\nStep 5: Aligning features with model")
         df = self.align_features(df)
-        
+
         # Step 6: Scale features
         if self.scaler is not None:
             print("\nStep 6: Scaling features")
@@ -576,14 +570,14 @@ class PreprocessingPipeline:
                 df_to_scale = df.drop(columns=['SK_ID_CURR'])
             else:
                 df_to_scale = df
-                
+
             # Scale
             try:
                 # Ensure columns match scaler expectations
                 if list(df_to_scale.columns) == self.expected_features:
                     scaled_values = self.scaler.transform(df_to_scale)
                     df = pd.DataFrame(scaled_values, columns=df_to_scale.columns, index=df_to_scale.index)
-                    
+
                     # Add back SK_ID_CURR
                     if current_sk_id is not None:
                         df.insert(0, 'SK_ID_CURR', current_sk_id)
@@ -596,10 +590,9 @@ class PreprocessingPipeline:
         # Extract final features
         if keep_sk_id:
             features_df = df  # Keep SK_ID_CURR
+        elif 'SK_ID_CURR' in df.columns:
+            features_df = df.drop(columns=['SK_ID_CURR'])
         else:
-            if 'SK_ID_CURR' in df.columns:
-                features_df = df.drop(columns=['SK_ID_CURR'])
-            else:
-                features_df = df
+            features_df = df
 
         return features_df

@@ -1,5 +1,4 @@
-"""
-Simple fix: Use the model.pkl file directly without MLflow registry.
+"""Simple fix: Use the model.pkl file directly without MLflow registry.
 
 This creates a symlink or copy of the best model to a known location
 so the API can load it directly.
@@ -37,7 +36,7 @@ def main():
     dest_model = MODELS_DIR / "production_model.pkl"
     shutil.copy2(source_model, dest_model)
 
-    print(f"\nSUCCESS: Model copied to:")
+    print("\nSUCCESS: Model copied to:")
     print(f"  {dest_model}")
     print(f"  Size: {dest_model.stat().st_size / 1024:.1f} KB")
 

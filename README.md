@@ -4,30 +4,51 @@
 [![Python](https://img.shields.io/badge/python-3.13-blue)]()
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115-green)]()
 [![MLflow](https://img.shields.io/badge/MLflow-3.6-orange)]()
+[![Docker](https://img.shields.io/badge/Docker-Ready-blue)]()
+[![CI/CD](https://img.shields.io/badge/CI%2FCD-GitHub%20Actions-success)]()
 
-A production-ready machine learning system for credit default prediction, featuring automated monitoring, comprehensive testing, and REST API serving.
+A **production-ready MLOps system** for credit default prediction with:
+- 🚀 **FastAPI REST API** with batch processing
+- 🐳 **Docker containerization** for easy deployment
+- ⚙️ **CI/CD pipeline** with automated testing
+- 📊 **Real-time monitoring** with data drift detection
+- 🔍 **Performance profiling** and optimization
+- 📈 **MLflow tracking** and model registry
 
 ---
 
 ## 🎯 Quick Start
 
-### Launch All Services (Easiest)
-```bash
-# Windows
-launch_services.bat
+**📋 All commands:** [START_COMMANDS.ps1](START_COMMANDS.ps1)
 
-# Linux/Mac
-./launch_services.sh
+### Launch Services (Windows PowerShell)
+
+**Terminal 1 - API Server:**
+```powershell
+.\start_api.ps1
+```
+
+**Terminal 2 - Dashboard:**
+```powershell
+.\start_streamlit.ps1
+```
+
+**Terminal 3 - MLflow (Optional):**
+```powershell
+.\start_mlflow.ps1
 ```
 
 This opens:
-- **MLflow UI**: http://localhost:5000 (Experiment tracking)
-- **Dashboard**: http://localhost:8501 (Threshold optimization)
-- **API Docs**: http://localhost:8000/docs (Interactive API)
+- **API Docs**: http://localhost:8000/docs
+- **Dashboard**: http://localhost:8501 (Login: `admin`/`admin123`)
+- **MLflow UI**: http://localhost:5000
 
-### Individual Services
+### 🐳 Docker Support
 ```bash
-# MLflow UI only
+docker-compose up --build -d
+docker-compose ps
+docker-compose down
+```
 poetry run python scripts/deployment/start_mlflow_ui.py
 
 # Dashboard only
@@ -260,6 +281,212 @@ print(f"Probability: {result['probability']:.4f}")
 
 ---
 
+
+## 🐳 Docker Deployment
+
+### Full Stack Deployment (Recommended)
+
+The complete system includes:
+- **FastAPI** - REST API (port 8000)
+- **Streamlit** - Interactive dashboard (port 8501)
+- **PostgreSQL** - Production database (port 5432)
+
+#### 1. Setup Environment Variables
+```bash
+# Copy example environment file
+cp .env.example .env
+
+# Edit .env and update:
+# - POSTGRES_PASSWORD (REQUIRED)
+# - SECRET_KEY (REQUIRED - generate with: openssl rand -hex 32)
+# - Other settings as needed
+```
+
+#### 2. Launch All Services
+```bash
+# Build and start all services
+docker-compose up --build -d
+
+# Check status
+docker-compose ps
+
+# View logs
+docker-compose logs -f api
+docker-compose logs -f streamlit
+docker-compose logs -f postgres
+```
+
+#### 3. Access Services
+- **API Documentation**: http://localhost:8000/docs
+- **Streamlit Dashboard**: http://localhost:8501
+- **Health Check**: http://localhost:8000/health
+
+### Individual Service Deployment
+
+#### API Only
+```bash
+docker build -t credit-scoring-api -f Dockerfile .
+docker run -d -p 8000:8000 \
+  -e DATABASE_URL=your_db_url \
+  -e SECRET_KEY=your_secret_key \
+  --name credit-api \
+  credit-scoring-api
+```
+
+#### Streamlit Only
+```bash
+docker build -t credit-scoring-streamlit -f Dockerfile.streamlit .
+docker run -d -p 8501:8501 \
+  -e API_BASE_URL=http://api:8000 \
+  --name credit-dashboard \
+  credit-scoring-streamlit
+```
+
+### Docker Compose Services
+
+The `docker-compose.yml` defines three services:
+
+| Service | Port | Description |
+|---------|------|-------------|
+| `postgres` | 5432 | PostgreSQL 15 database |
+| `api` | 8000 | FastAPI REST API |
+| `streamlit` | 8501 | Streamlit dashboard |
+
+**Volumes**:
+- `postgres_data` - Database persistence
+- `./logs` - Application logs
+- `./data` - Model and feature data
+- `./models` - ML model files
+
+**Health Checks**:
+- All services include health checks
+- Dependencies ensure proper startup order
+
+### Environment Variables
+
+See [.env.example](.env.example) for all available settings. Key variables:
+
+```bash
+# Database
+POSTGRES_USER=postgres
+POSTGRES_PASSWORD=changeme_secure_password
+POSTGRES_DB=credit_scoring_db
+
+# Security
+SECRET_KEY=your-secret-key-here-change-in-production
+
+# API
+API_PORT=8000
+API_WORKERS=4
+
+# Streamlit
+STREAMLIT_PORT=8501
+API_BASE_URL=http://api:8000
+```
+
+### Production Deployment
+
+For production deployment to cloud platforms, see [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md).
+
+Supported platforms:
+- **Heroku** - Container deployment
+- **Google Cloud Run** - Serverless containers
+- **AWS ECS** - Elastic Container Service
+- **Azure Container Instances** - Managed containers
+
+---
+
+## ⚙️ CI/CD Pipeline
+
+Automated workflow on push to main:
+1. Run tests (pytest)
+2. Build Docker image
+3. Push to GitHub Container Registry
+
+Location: `.github/workflows/ci-cd.yml`
+
+---
+
+## 📊 Monitoring & Logging
+
+### Production Logs
+```bash
+# View monitoring dashboard
+poetry run python scripts/monitoring/dashboard.py
+
+# Check data drift
+poetry run python scripts/monitoring/detect_drift.py
+
+# Profile performance
+poetry run python scripts/monitoring/profile_performance.py
+```
+
+**Logs**: `logs/predictions.jsonl` (JSON format)
+
+### Metrics Tracked
+- Predictions count & distribution
+- Processing time & throughput  
+- Error rates
+- Data drift detection
+- Performance profiling
+
+---
+
 **Last Updated**: December 9, 2025
 **Version**: 1.0.0
 **Status**: Production Ready ✅
+
+---
+
+## Docker Deployment
+
+### Quick Start
+```bash
+docker-compose up --build -d
+docker-compose logs -f api
+```
+
+### Manual Build
+```bash
+docker build -t credit-scoring-api .
+docker run -d -p 8000:8000 credit-scoring-api
+```
+
+---
+
+## CI/CD Pipeline
+
+Automated workflow on push to main:
+1. Run tests (pytest)
+2. Build Docker image  
+3. Push to GitHub Container Registry
+
+Location: `.github/workflows/ci-cd.yml`
+
+---
+
+## Monitoring & Logging
+
+### Production Logs
+```bash
+# View monitoring dashboard
+poetry run python scripts/monitoring/dashboard.py
+
+# Check data drift
+poetry run python scripts/monitoring/detect_drift.py
+
+# Profile performance
+poetry run python scripts/monitoring/profile_performance.py
+```
+
+**Logs**: `logs/predictions.jsonl` (JSON format)
+
+### Metrics Tracked
+- Predictions count & distribution
+- Processing time & throughput
+- Error rates
+- Data drift detection
+- Performance profiling
+
+---
+

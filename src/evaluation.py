@@ -1,5 +1,4 @@
-"""
-Model Evaluation Utilities
+"""Model Evaluation Utilities
 
 Functions for comprehensive model evaluation on imbalanced datasets.
 Includes metrics, visualizations, and comparison tools.
@@ -7,28 +6,33 @@ Includes metrics, visualizations, and comparison tools.
 Educational focus on understanding WHY certain metrics matter for credit scoring!
 """
 
+import warnings
+
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.metrics import (
-    roc_auc_score, roc_curve, auc,
-    precision_recall_curve, average_precision_score,
-    confusion_matrix, classification_report,
-    f1_score, precision_score, recall_score, accuracy_score
+    accuracy_score,
+    auc,
+    average_precision_score,
+    confusion_matrix,
+    f1_score,
+    precision_recall_curve,
+    precision_score,
+    recall_score,
+    roc_auc_score,
+    roc_curve,
 )
-from typing import Dict, Tuple, Optional
-import warnings
 
 warnings.filterwarnings('ignore')
 
 
 def evaluate_model(y_true: np.ndarray,
                   y_pred: np.ndarray,
-                  y_pred_proba: Optional[np.ndarray] = None,
-                  model_name: str = "Model") -> Dict[str, float]:
-    """
-    Comprehensive model evaluation with focus on imbalanced classification metrics.
+                  y_pred_proba: np.ndarray | None = None,
+                  model_name: str = "Model") -> dict[str, float]:
+    """Comprehensive model evaluation with focus on imbalanced classification metrics.
 
     Educational Note:
     -----------------
@@ -62,8 +66,8 @@ def evaluate_model(y_true: np.ndarray,
     - False Negative = Approve bad customer (financial loss)
     - Choose metric based on which error is more costly!
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     y_true : np.ndarray
         True labels
     y_pred : np.ndarray
@@ -73,8 +77,8 @@ def evaluate_model(y_true: np.ndarray,
     model_name : str
         Name of the model for display
 
-    Returns:
-    --------
+    Returns
+    -------
     Dict[str, float]
         Dictionary with all evaluation metrics
 
@@ -82,6 +86,7 @@ def evaluate_model(y_true: np.ndarray,
     --------
     >>> metrics = evaluate_model(y_val, y_pred, y_pred_proba, "Random Forest")
     >>> print(f"ROC-AUC: {metrics['roc_auc']:.4f}")
+
     """
     metrics = {}
 
@@ -95,7 +100,7 @@ def evaluate_model(y_true: np.ndarray,
     metrics['recall'] = recall_score(y_true, y_pred, zero_division=0)
     metrics['f1'] = f1_score(y_true, y_pred, zero_division=0)
 
-    print(f"\\n📊 Classification Metrics:")
+    print("\\n📊 Classification Metrics:")
     print(f"   Accuracy:  {metrics['accuracy']:.4f} ⚠️  (Can be misleading for imbalanced data!)")
     print(f"   Precision: {metrics['precision']:.4f} (Of predicted defaults, % correct)")
     print(f"   Recall:    {metrics['recall']:.4f} (Of actual defaults, % caught)")
@@ -106,7 +111,7 @@ def evaluate_model(y_true: np.ndarray,
         metrics['roc_auc'] = roc_auc_score(y_true, y_pred_proba)
         metrics['pr_auc'] = average_precision_score(y_true, y_pred_proba)
 
-        print(f"\\n📈 Probability-Based Metrics:")
+        print("\\n📈 Probability-Based Metrics:")
         print(f"   ROC-AUC:    {metrics['roc_auc']:.4f} (Overall ranking ability)")
         print(f"   PR-AUC:     {metrics['pr_auc']:.4f} (Better for imbalanced data)")
 
@@ -119,7 +124,7 @@ def evaluate_model(y_true: np.ndarray,
     metrics['false_negatives'] = fn
     metrics['true_positives'] = tp
 
-    print(f"\\n📋 Confusion Matrix:")
+    print("\\n📋 Confusion Matrix:")
     print(f"   True Negatives (TN):  {tn:,} (Correctly predicted non-defaults)")
     print(f"   False Positives (FP): {fp:,} (Good customers rejected)")
     print(f"   False Negatives (FN): {fn:,} (Bad customers approved)")
@@ -133,7 +138,7 @@ def evaluate_model(y_true: np.ndarray,
     metrics['false_positive_rate'] = fpr
     metrics['false_negative_rate'] = fnr
 
-    print(f"\\n💼 Business Impact:")
+    print("\\n💼 Business Impact:")
     print(f"   False Positive Rate: {fpr:.2%} (% of good customers rejected)")
     print(f"   False Negative Rate: {fnr:.2%} (% of bad customers approved)")
 
@@ -145,9 +150,8 @@ def evaluate_model(y_true: np.ndarray,
 def plot_roc_curve(y_true: np.ndarray,
                   y_pred_proba: np.ndarray,
                   model_name: str = "Model",
-                  ax: Optional[plt.Axes] = None) -> plt.Figure:
-    """
-    Plot ROC (Receiver Operating Characteristic) curve.
+                  ax: plt.Axes | None = None) -> plt.Figure:
+    """Plot ROC (Receiver Operating Characteristic) curve.
 
     Educational Note:
     -----------------
@@ -170,8 +174,8 @@ def plot_roc_curve(y_true: np.ndarray,
     - Can be optimistic for imbalanced data
     - Use Precision-Recall curve as complement
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     y_true : np.ndarray
         True labels
     y_pred_proba : np.ndarray
@@ -181,8 +185,8 @@ def plot_roc_curve(y_true: np.ndarray,
     ax : plt.Axes, optional
         Matplotlib axis to plot on
 
-    Returns:
-    --------
+    Returns
+    -------
     plt.Figure
         Figure object
 
@@ -190,6 +194,7 @@ def plot_roc_curve(y_true: np.ndarray,
     --------
     >>> plot_roc_curve(y_val, model.predict_proba(X_val)[:, 1], "Random Forest")
     >>> plt.show()
+
     """
     fpr, tpr, thresholds = roc_curve(y_true, y_pred_proba)
     roc_auc = auc(fpr, tpr)
@@ -221,9 +226,8 @@ def plot_roc_curve(y_true: np.ndarray,
 def plot_precision_recall_curve(y_true: np.ndarray,
                                  y_pred_proba: np.ndarray,
                                  model_name: str = "Model",
-                                 ax: Optional[plt.Axes] = None) -> plt.Figure:
-    """
-    Plot Precision-Recall curve.
+                                 ax: plt.Axes | None = None) -> plt.Figure:
+    """Plot Precision-Recall curve.
 
     Educational Note:
     -----------------
@@ -247,8 +251,8 @@ def plot_precision_recall_curve(y_true: np.ndarray,
     - Positive class is more important
     - Want realistic performance assessment
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     y_true : np.ndarray
         True labels
     y_pred_proba : np.ndarray
@@ -258,8 +262,8 @@ def plot_precision_recall_curve(y_true: np.ndarray,
     ax : plt.Axes, optional
         Matplotlib axis to plot on
 
-    Returns:
-    --------
+    Returns
+    -------
     plt.Figure
         Figure object
 
@@ -267,6 +271,7 @@ def plot_precision_recall_curve(y_true: np.ndarray,
     --------
     >>> plot_precision_recall_curve(y_val, model.predict_proba(X_val)[:, 1])
     >>> plt.show()
+
     """
     precision, recall, thresholds = precision_recall_curve(y_true, y_pred_proba)
     pr_auc = average_precision_score(y_true, y_pred_proba)
@@ -300,9 +305,8 @@ def plot_confusion_matrix(y_true: np.ndarray,
                           y_pred: np.ndarray,
                           model_name: str = "Model",
                           normalize: bool = False,
-                          ax: Optional[plt.Axes] = None) -> plt.Figure:
-    """
-    Plot confusion matrix heatmap.
+                          ax: plt.Axes | None = None) -> plt.Figure:
+    """Plot confusion matrix heatmap.
 
     Educational Note:
     -----------------
@@ -325,8 +329,8 @@ def plot_confusion_matrix(y_true: np.ndarray,
     - FN = Financial loss from bad loans
     - Usually FN is more costly in credit scoring!
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     y_true : np.ndarray
         True labels
     y_pred : np.ndarray
@@ -338,8 +342,8 @@ def plot_confusion_matrix(y_true: np.ndarray,
     ax : plt.Axes, optional
         Matplotlib axis to plot on
 
-    Returns:
-    --------
+    Returns
+    -------
     plt.Figure
         Figure object
 
@@ -347,6 +351,7 @@ def plot_confusion_matrix(y_true: np.ndarray,
     --------
     >>> plot_confusion_matrix(y_val, y_pred, "Random Forest", normalize=True)
     >>> plt.show()
+
     """
     cm = confusion_matrix(y_true, y_pred)
 
@@ -377,10 +382,9 @@ def plot_confusion_matrix(y_true: np.ndarray,
     return fig
 
 
-def compare_models(results: Dict[str, Dict[str, float]],
+def compare_models(results: dict[str, dict[str, float]],
                   metric: str = 'roc_auc') -> pd.DataFrame:
-    """
-    Compare multiple models side-by-side.
+    """Compare multiple models side-by-side.
 
     Educational Note:
     -----------------
@@ -397,16 +401,16 @@ def compare_models(results: Dict[str, Dict[str, float]],
     - Compare using cross-validation
     - Consider ensemble of best models
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     results : Dict[str, Dict[str, float]]
         Dictionary mapping model names to their metrics
         Example: {'LogisticRegression': {'roc_auc': 0.75, ...}, ...}
     metric : str
         Primary metric to sort by
 
-    Returns:
-    --------
+    Returns
+    -------
     pd.DataFrame
         Comparison table sorted by primary metric
 
@@ -419,6 +423,7 @@ def compare_models(results: Dict[str, Dict[str, float]],
     ... }
     >>> comparison = compare_models(results, metric='roc_auc')
     >>> print(comparison)
+
     """
     # Convert to DataFrame
     df = pd.DataFrame(results).T
@@ -447,8 +452,7 @@ def plot_feature_importance(feature_names: list,
                            importances: np.ndarray,
                            top_n: int = 20,
                            model_name: str = "Model") -> plt.Figure:
-    """
-    Plot feature importance from tree-based models.
+    """Plot feature importance from tree-based models.
 
     Educational Note:
     -----------------
@@ -469,8 +473,8 @@ def plot_feature_importance(feature_names: list,
     - Feature engineering (create more features like important ones)
     - Business insights (what drives defaults?)
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     feature_names : list
         List of feature names
     importances : np.ndarray
@@ -480,8 +484,8 @@ def plot_feature_importance(feature_names: list,
     model_name : str
         Model name for title
 
-    Returns:
-    --------
+    Returns
+    -------
     plt.Figure
         Figure object
 
@@ -491,6 +495,7 @@ def plot_feature_importance(feature_names: list,
     >>> model = RandomForestClassifier().fit(X_train, y_train)
     >>> plot_feature_importance(X_train.columns, model.feature_importances_)
     >>> plt.show()
+
     """
     # Create importance DataFrame
     importance_df = pd.DataFrame({

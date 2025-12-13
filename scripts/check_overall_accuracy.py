@@ -1,7 +1,7 @@
 """Check overall prediction accuracy across all samples."""
-import pandas as pd
-import numpy as np
 from pathlib import Path
+
+import pandas as pd
 
 PROJECT_ROOT = Path(__file__).parent.parent
 
@@ -27,7 +27,7 @@ print("="*80)
 print("OVERALL PREDICTION ACCURACY ANALYSIS")
 print("="*80)
 print(f"\nTotal samples: {len(merged):,}")
-print(f"\nDifference statistics:")
+print("\nDifference statistics:")
 print(f"  Mean difference: {merged['diff'].mean():.4f} ({merged['diff'].mean()*100:.2f}%)")
 print(f"  Median difference: {merged['diff'].median():.4f} ({merged['diff'].median()*100:.2f}%)")
 print(f"  Max difference: {merged['diff'].max():.4f} ({merged['diff'].max()*100:.2f}%)")
@@ -40,7 +40,7 @@ close = (merged['diff'] < 0.05).sum()
 moderate = (merged['diff'] < 0.10).sum()
 large = (merged['diff'] >= 0.10).sum()
 
-print(f"\nAccuracy categories:")
+print("\nAccuracy categories:")
 print(f"  Perfect match (< 0.01%): {perfect:,} ({perfect/len(merged)*100:.1f}%)")
 print(f"  Very close (< 1%): {very_close:,} ({very_close/len(merged)*100:.1f}%)")
 print(f"  Close (< 5%): {close:,} ({close/len(merged)*100:.1f}%)")
@@ -49,7 +49,7 @@ print(f"  Large (>= 10%): {large:,} ({large/len(merged)*100:.1f}%)")
 
 # Find worst offenders
 worst = merged.nlargest(10, 'diff')[['SK_ID_CURR', 'PROBABILITY_train', 'PROBABILITY_precomp', 'diff']]
-print(f"\nWorst 10 mismatches:")
+print("\nWorst 10 mismatches:")
 for _, row in worst.iterrows():
     print(f"  ID {int(row['SK_ID_CURR'])}: Train={row['PROBABILITY_train']:.4f}, "
           f"Precomp={row['PROBABILITY_precomp']:.4f}, Diff={row['diff']:.4f}")

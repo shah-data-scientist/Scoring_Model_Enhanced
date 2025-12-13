@@ -1,13 +1,10 @@
-"""
-Start fresh MLflow with minimal runs for fast performance.
+"""Start fresh MLflow with minimal runs for fast performance.
 
 This keeps your existing mlruns as backup and creates a clean, fast setup.
 """
 
 import shutil
 from pathlib import Path
-import mlflow
-from mlflow.tracking import MlflowClient
 
 PROJECT_ROOT = Path(__file__).parent.parent.parent
 MLRUNS_DIR = PROJECT_ROOT / "mlruns"
@@ -44,7 +41,7 @@ def main():
         models_new = MLRUNS_NEW / "1" / "models"
         models_new.parent.mkdir(parents=True, exist_ok=True)
         shutil.copytree(str(models_old), str(models_new))
-        print(f"  Copied models to clean directory")
+        print("  Copied models to clean directory")
 
     # Step 3: Move clean to mlruns
     print("\n[3/3] Activating clean setup...")

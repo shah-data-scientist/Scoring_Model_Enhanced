@@ -1,23 +1,22 @@
-"""
-Tests for configuration module.
+"""Tests for configuration module.
 
 Run with: poetry run pytest tests/test_config.py -v
 """
-import pytest
 from pathlib import Path
-import tempfile
+
+import pytest
 import yaml
 
 from src.config import (
-    load_config,
+    CONFIG,
+    get_artifact_path,
+    get_baseline_tags,
     get_data_path,
     get_mlflow_uri,
-    get_random_state,
-    get_baseline_tags,
     get_optimization_tags,
     get_production_tags,
-    get_artifact_path,
-    CONFIG
+    get_random_state,
+    load_config,
 )
 
 

@@ -1,15 +1,13 @@
-"""
-Quick test to verify MLflow is working correctly.
+"""Quick test to verify MLflow is working correctly.
 Run this to create a test experiment and verify MLflow UI shows it.
 """
 
 import mlflow
 import mlflow.sklearn
 from sklearn.datasets import make_classification
-from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import accuracy_score, roc_auc_score
-import numpy as np
+from sklearn.model_selection import train_test_split
 
 print("="*80)
 print("MLFLOW QUICK TEST")

@@ -1,15 +1,14 @@
-"""
-Create all 5 comprehensive educational notebooks for the Credit Scoring project.
+"""Create all 5 comprehensive educational notebooks for the Credit Scoring project.
 This ensures a complete end-to-end workflow.
 """
 
-import nbformat as nbf
 from pathlib import Path
+
+import nbformat as nbf
 
 
 def create_feature_engineering_notebook():
     """Create comprehensive Feature Engineering notebook."""
-
     nb = nbf.v4.new_notebook()
     cells = []
 
@@ -567,7 +566,6 @@ Your data is now ready for modeling. Remember: good features are often more impo
 
 def create_baseline_models_notebook():
     """Create Baseline Models training notebook with MLflow."""
-
     nb = nbf.v4.new_notebook()
     cells = []
 

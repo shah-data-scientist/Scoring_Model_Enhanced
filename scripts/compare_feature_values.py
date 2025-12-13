@@ -1,7 +1,7 @@
 """Compare feature values between X_train.csv and precomputed_features.parquet."""
-import pandas as pd
-import numpy as np
 from pathlib import Path
+
+import pandas as pd
 
 PROJECT_ROOT = Path(__file__).parent.parent
 
@@ -17,7 +17,7 @@ print(f"train_ids shape: {train_ids.shape}")
 
 # Add SK_ID_CURR to X_train
 X_train_csv['SK_ID_CURR'] = train_ids['SK_ID_CURR'].values
-print(f"Added SK_ID_CURR to X_train.csv\n")
+print("Added SK_ID_CURR to X_train.csv\n")
 
 # Load precomputed features from Parquet
 print("Loading precomputed_features.parquet...")
@@ -37,14 +37,14 @@ for sample_id in sample_ids:
     # Get row from X_train.csv
     csv_row = X_train_csv[X_train_csv['SK_ID_CURR'] == sample_id]
     if len(csv_row) == 0:
-        print(f"  Not found in X_train.csv")
+        print("  Not found in X_train.csv")
         continue
     csv_row = csv_row.iloc[0]
 
     # Get row from Parquet
     parquet_row = parquet_df[parquet_df['SK_ID_CURR'] == sample_id]
     if len(parquet_row) == 0:
-        print(f"  Not found in Parquet")
+        print("  Not found in Parquet")
         continue
     parquet_row = parquet_row.iloc[0]
 
@@ -60,14 +60,12 @@ for sample_id in sample_ids:
         if pd.isna(csv_val) and pd.isna(parquet_val):
             continue
 
-        if pd.isna(csv_val) or pd.isna(parquet_val):
-            differences.append((feat, csv_val, parquet_val))
-        elif abs(csv_val - parquet_val) > 0.0001:
+        if pd.isna(csv_val) or pd.isna(parquet_val) or abs(csv_val - parquet_val) > 0.0001:
             differences.append((feat, csv_val, parquet_val))
 
     if differences:
         print(f"  [WARNING] {len(differences)} feature value differences!")
-        print(f"  First 10 differences:")
+        print("  First 10 differences:")
         for feat, csv_val, parquet_val in differences[:10]:
             print(f"    {feat}: CSV={csv_val:.6f}, Parquet={parquet_val:.6f}, Diff={abs(csv_val - parquet_val):.6f}")
     else:

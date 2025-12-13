@@ -1,7 +1,7 @@
 
 import sys
 from pathlib import Path
-import pandas as pd
+
 import mlflow
 from mlflow.tracking import MlflowClient
 
@@ -23,16 +23,16 @@ def test_load_mlflow_data():
     try:
         experiments = client.search_experiments()
         print(f"Found {len(experiments)} experiments.")
-        
+
         all_runs = []
         for exp in experiments:
             if exp.lifecycle_stage == 'deleted':
                 continue
-            
+
             print(f"Scanning experiment: {exp.name} (ID: {exp.experiment_id})")
             runs = client.search_runs([exp.experiment_id])
             print(f"  Found {len(runs)} runs.")
-            
+
             for run in runs:
                 # partial simulation of data extraction
                 run_data = {
@@ -43,11 +43,11 @@ def test_load_mlflow_data():
                 }
                 # Check metric access
                 for key, value in run.data.metrics.items():
-                    pass 
+                    pass
                 all_runs.append(run_data)
-                
+
         print(f"Total runs processed: {len(all_runs)}")
-        
+
     except Exception as e:
         print(f"Error during MLflow operations: {e}")
         import traceback

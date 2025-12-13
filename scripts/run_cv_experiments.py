@@ -1,5 +1,4 @@
-"""
-5-Fold Cross-Validation Experiments - Focused Approach
+"""5-Fold Cross-Validation Experiments - Focused Approach
 
 Tests 4 configurations:
 - 2 feature strategies: baseline, domain
@@ -13,16 +12,16 @@ Skipping:
 Goal: Identify best configuration for hyperparameter optimization
 """
 import sys
+from datetime import datetime
 from pathlib import Path
-import pandas as pd
-import numpy as np
-from sklearn.model_selection import StratifiedKFold
-from sklearn.metrics import roc_auc_score, average_precision_score
-from lightgbm import LGBMClassifier
+
 import mlflow
 import mlflow.sklearn
-import time
-from datetime import datetime
+import numpy as np
+import pandas as pd
+from lightgbm import LGBMClassifier
+from sklearn.metrics import average_precision_score, roc_auc_score
+from sklearn.model_selection import StratifiedKFold
 
 sys.path.append(str(Path(__file__).parent.parent))
 
@@ -137,7 +136,7 @@ def run_cv_experiment(X, y, feature_strategy, sampling_strategy, exp_num):
             mlflow.log_metric("std_pr_auc", std_pr_auc)
             mlflow.log_metric("roc_auc", mean_roc_auc)  # For sorting
 
-            print(f"\nCV Results:")
+            print("\nCV Results:")
             print(f"  ROC-AUC: {mean_roc_auc:.4f} +/- {std_roc_auc:.4f}")
             print(f"  PR-AUC:  {mean_pr_auc:.4f} +/- {std_pr_auc:.4f}")
 
@@ -149,9 +148,8 @@ def run_cv_experiment(X, y, feature_strategy, sampling_strategy, exp_num):
                 'mean_pr_auc': mean_pr_auc,
                 'std_pr_auc': std_pr_auc
             }
-        else:
-            print("All folds failed!")
-            return None
+        print("All folds failed!")
+        return None
 
 def main():
     """Run all CV experiments."""
@@ -159,7 +157,7 @@ def main():
     print("5-FOLD CROSS-VALIDATION EXPERIMENTS")
     print("="*80)
     print(f"\nTimestamp: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    print(f"Experiments: 4 (2 features x 2 sampling)")
+    print("Experiments: 4 (2 features x 2 sampling)")
     print(f"MLflow: {MLFLOW_TRACKING_URI}")
     print(f"Experiment: {EXPERIMENT_NAME}")
 

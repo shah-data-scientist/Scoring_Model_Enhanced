@@ -35,7 +35,16 @@
       "Bash(else echo \"NOT FOUND\")",
       "Bash(python:*)",
       "Bash(ls:*)",
-      "Bash(timeout 5 sleep:*)"
+      "Bash(timeout 5 sleep:*)",
+      "Bash(del teststest_batch_predictions.py teststest_preprocessing.py teststest_backend_auth.py)",
+      "Bash(docker-compose up:*)",
+      "Bash(taskkill:*)",
+      "Bash(cmd //c \"taskkill /F /IM streamlit.exe\")",
+      "Bash(grep:*)",
+      "Bash(cmd //c \"taskkill /F /IM streamlit.exe 2>nul || echo No Streamlit running\")",
+      "Bash(cmd //c \"taskkill /F /IM streamlit.exe /IM uvicorn.exe 2>nul || echo Cleaned\")",
+      "Bash(poetry run streamlit:*)",
+      "Bash(timeout 2 sleep:*)"
     ],
     "deny": [],
     "ask": []

@@ -1,5 +1,4 @@
-"""
-Hyperparameter Optimization for Domain + Balanced Configuration
+"""Hyperparameter Optimization for Domain + Balanced Configuration
 
 Based on 5-fold CV results:
 - Best configuration: domain features + balanced class weights
@@ -14,16 +13,17 @@ This script:
 5. Aims to reach 0.82 ROC-AUC target
 """
 import sys
-from pathlib import Path
-import pandas as pd
-import numpy as np
-from sklearn.model_selection import RandomizedSearchCV, StratifiedKFold
-from sklearn.metrics import roc_auc_score, average_precision_score, make_scorer
-from lightgbm import LGBMClassifier
-import mlflow
-import mlflow.sklearn
 import time
 from datetime import datetime
+from pathlib import Path
+
+import mlflow
+import mlflow.sklearn
+import numpy as np
+import pandas as pd
+from lightgbm import LGBMClassifier
+from sklearn.metrics import average_precision_score, roc_auc_score
+from sklearn.model_selection import RandomizedSearchCV, StratifiedKFold
 
 sys.path.append(str(Path(__file__).parent.parent))
 
@@ -64,10 +64,10 @@ def main():
     print("HYPERPARAMETER OPTIMIZATION - DOMAIN + BALANCED")
     print("="*80)
     print(f"\nTimestamp: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    print(f"Configuration: domain features + balanced class weights")
+    print("Configuration: domain features + balanced class weights")
     print(f"Search iterations: {N_ITER}")
     print(f"CV folds: {CV_FOLDS}")
-    print(f"Target: 0.82 ROC-AUC")
+    print("Target: 0.82 ROC-AUC")
 
     # Setup MLflow
     mlflow.set_experiment(EXPERIMENT_NAME)
@@ -213,7 +213,7 @@ def main():
         print("TARGET ANALYSIS")
         print("="*80)
         print(f"\nValidation ROC-AUC: {val_metrics['roc_auc']:.4f}")
-        print(f"Target ROC-AUC:     0.8200")
+        print("Target ROC-AUC:     0.8200")
         print(f"Gap to target:      {0.82 - val_metrics['roc_auc']:.4f}")
 
         if val_metrics['roc_auc'] >= 0.82:

@@ -1,5 +1,4 @@
-"""
-Investigate why SMOTE performed poorly in experiments.
+"""Investigate why SMOTE performed poorly in experiments.
 
 SMOTE experiments showed:
 - Very low recall (0.016-0.026)
@@ -15,12 +14,15 @@ This script investigates potential causes.
 """
 import sys
 from pathlib import Path
-import pandas as pd
+
 import numpy as np
-from sklearn.metrics import roc_auc_score, average_precision_score, classification_report
+import pandas as pd
 from lightgbm import LGBMClassifier
-import matplotlib.pyplot as plt
-import seaborn as sns
+from sklearn.metrics import (
+    average_precision_score,
+    classification_report,
+    roc_auc_score,
+)
 
 # Add parent directory to path
 sys.path.append(str(Path(__file__).parent.parent))
@@ -127,19 +129,19 @@ def compare_model_predictions(X_train, y_train, X_val, y_val):
         roc_auc = roc_auc_score(y_val, y_pred_proba)
         pr_auc = average_precision_score(y_val, y_pred_proba)
 
-        print(f"\nValidation Performance:")
+        print("\nValidation Performance:")
         print(f"  ROC-AUC: {roc_auc:.4f}")
         print(f"  PR-AUC:  {pr_auc:.4f}")
         print("\nClassification Report:")
         print(classification_report(y_val, y_pred, target_names=['Class 0', 'Class 1']))
 
         # Analyze prediction distribution
-        print(f"\nPrediction Distribution:")
+        print("\nPrediction Distribution:")
         print(f"  Predicted Class 0: {(y_pred == 0).sum():,} ({(y_pred == 0).sum()/len(y_pred)*100:.2f}%)")
         print(f"  Predicted Class 1: {(y_pred == 1).sum():,} ({(y_pred == 1).sum()/len(y_pred)*100:.2f}%)")
 
         # Analyze probability distribution
-        print(f"\nProbability Statistics:")
+        print("\nProbability Statistics:")
         print(f"  Mean probability for class 1: {y_pred_proba.mean():.4f}")
         print(f"  Median probability for class 1: {np.median(y_pred_proba):.4f}")
         print(f"  Std probability for class 1: {y_pred_proba.std():.4f}")
@@ -177,7 +179,7 @@ def investigate_threshold_issue(results, y_val):
         print("\nThreshold | Pred Class 1 | Recall | Precision | F1-Score")
         print("-" * 70)
 
-        from sklearn.metrics import recall_score, precision_score, f1_score
+        from sklearn.metrics import f1_score, precision_score, recall_score
 
         for threshold in thresholds:
             y_pred_thresh = (y_pred_proba >= threshold).astype(int)

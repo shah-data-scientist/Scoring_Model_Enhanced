@@ -1,5 +1,4 @@
-"""
-Feature Engineering Utilities
+"""Feature Engineering Utilities
 
 This module contains functions for:
 - Categorical encoding
@@ -7,16 +6,16 @@ This module contains functions for:
 - Column name cleaning
 """
 
-import pandas as pd
 import re
-from sklearn.preprocessing import StandardScaler
-from typing import List, Tuple
 
-def encode_categorical_features(train_df: pd.DataFrame, 
-                              test_df: pd.DataFrame, 
-                              cardinality_limit: int = 10) -> Tuple[pd.DataFrame, pd.DataFrame]:
-    """
-    One-hot encode categorical features with low cardinality.
+import pandas as pd
+from sklearn.preprocessing import StandardScaler
+
+
+def encode_categorical_features(train_df: pd.DataFrame,
+                              test_df: pd.DataFrame,
+                              cardinality_limit: int = 10) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """One-hot encode categorical features with low cardinality.
     Drops features with cardinality higher than the limit.
     """
     # Identify categorical columns
@@ -53,12 +52,11 @@ def encode_categorical_features(train_df: pd.DataFrame,
         train_df = train_df.drop(columns=remaining_categorical)
         test_df = test_df.drop(columns=[col for col in remaining_categorical if col in test_df.columns])
         print(f"  [OK] Dropped {len(remaining_categorical)} high-cardinality features")
-    
+
     return train_df, test_df
 
 def clean_column_names(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Clean column names to remove special characters (for LightGBM/XGBoost compatibility).
+    """Clean column names to remove special characters (for LightGBM/XGBoost compatibility).
     """
     def _clean_name(col_name):
         # Keep only alphanumeric, underscores, and hyphens
@@ -72,9 +70,8 @@ def clean_column_names(df: pd.DataFrame) -> pd.DataFrame:
     df.columns = [_clean_name(col) for col in df.columns]
     return df
 
-def scale_features(X_train: pd.DataFrame, X_test: pd.DataFrame) -> Tuple[pd.DataFrame, pd.DataFrame]:
-    """
-    Scale features using StandardScaler.
+def scale_features(X_train: pd.DataFrame, X_test: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Scale features using StandardScaler.
     Returns DataFrames with columns and indices preserved.
     """
     print("Scaling features with StandardScaler...")

@@ -60,6 +60,8 @@ This document provides technical details about the credit scoring model, includi
     └──────────┘          └─────────────┘
 ```
 
+**Database Schema**: For detailed database schema information, including tables for users, predictions, and monitoring, please refer to [DATABASE_SCHEMA.md](DATABASE_SCHEMA.md).
+
 ---
 
 ## Features (189 Total)

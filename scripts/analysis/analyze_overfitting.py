@@ -1,5 +1,4 @@
-"""
-Comprehensive Overfitting/Underfitting Analysis
+"""Comprehensive Overfitting/Underfitting Analysis
 
 Analyzes all MLflow experiments to check for:
 1. Overfitting: Training performance >> Validation performance
@@ -13,9 +12,9 @@ Also answers key questions:
 """
 import sys
 from pathlib import Path
-import pandas as pd
-import numpy as np
+
 import mlflow
+import pandas as pd
 from mlflow.tracking import MlflowClient
 
 # Add parent directory to path
@@ -94,7 +93,7 @@ def analyze_experiment_for_overfitting(experiment_name):
     if results:
         df = pd.DataFrame(results)
         print(f"\nTotal runs: {len(df)}")
-        print(f"\nOverfitting Analysis:")
+        print("\nOverfitting Analysis:")
         print(df[['run_name', 'train_roc_auc', 'val_roc_auc', 'gap', 'status']].to_string(index=False))
 
         # Summary statistics
@@ -113,9 +112,8 @@ def analyze_experiment_for_overfitting(experiment_name):
                 print(f"  {row['run_name']:50s} | Gap: {row['gap']:.4f} | Train: {row['train_roc_auc']:.4f} | Val: {row['val_roc_auc']:.4f}")
 
         return df
-    else:
-        print("No results to analyze")
-        return None
+    print("No results to analyze")
+    return None
 
 
 def answer_key_questions():
@@ -148,7 +146,7 @@ def answer_key_questions():
             if strategy != "N/A":
                 sampling_strategies.add(strategy)
 
-        print(f"Strategies tested in feature engineering experiment:")
+        print("Strategies tested in feature engineering experiment:")
         for strategy in sorted(sampling_strategies):
             strategy_runs = [r for r in runs if r.data.tags.get("sampling_strategy") == strategy]
             best_roc = max([r.data.metrics.get("roc_auc", 0) for r in strategy_runs])
@@ -164,8 +162,8 @@ def answer_key_questions():
 
     if hyperparam_opt:
         opt_runs = client.search_runs([hyperparam_opt.experiment_id])
-        print(f"\nExisting hyperparameter optimization experiment found:")
-        print(f"  Experiment: credit_scoring_hyperparameter_optimization")
+        print("\nExisting hyperparameter optimization experiment found:")
+        print("  Experiment: credit_scoring_hyperparameter_optimization")
         print(f"  Runs: {len(opt_runs)}")
         for run in opt_runs:
             run_name = run.data.tags.get("mlflow.runName", "Unknown")
@@ -188,7 +186,7 @@ def answer_key_questions():
             best_feature = best_run.data.tags.get("feature_strategy", "N/A")
             best_sampling = best_run.data.tags.get("sampling_strategy", "N/A")
 
-            print(f"\nBest configuration from feature engineering experiment:")
+            print("\nBest configuration from feature engineering experiment:")
             print(f"  Features: {best_feature}")
             print(f"  Sampling: {best_sampling}")
             print(f"  ROC-AUC: {best_roc:.4f}")
@@ -199,7 +197,7 @@ def answer_key_questions():
                     opt_roc = opt_runs[0].data.metrics.get("roc_auc", opt_runs[0].data.metrics.get("val_roc_auc", 0))
                     opt_feature = opt_runs[0].data.tags.get("feature_strategy", "baseline")
 
-                    print(f"\nCOMPARISON:")
+                    print("\nCOMPARISON:")
                     print(f"  Hyperparameter optimization ({opt_feature}): {opt_roc:.4f}")
                     print(f"  Best feature engineering ({best_feature}+{best_sampling}): {best_roc:.4f}")
 
@@ -208,7 +206,7 @@ def answer_key_questions():
                         print(f"           but best configuration is '{best_feature}+{best_sampling}'")
                         print(f"\n  RECOMMENDATION: Run hyperparameter optimization on '{best_feature}+{best_sampling}'")
                     else:
-                        print(f"\n  Hyperparameter optimization was done on the best configuration!")
+                        print("\n  Hyperparameter optimization was done on the best configuration!")
 
 
 def main():

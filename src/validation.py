@@ -1,29 +1,27 @@
-"""
-Data Validation Utilities
+"""Data Validation Utilities
 
 This module provides comprehensive validation functions for data integrity,
 schema validation, and quality checks throughout the ML pipeline.
 """
-import pandas as pd
-import numpy as np
-from pathlib import Path
-from typing import List, Dict, Optional, Tuple
 import warnings
+from pathlib import Path
+
+import numpy as np
+import pandas as pd
 
 
 class DataValidationError(Exception):
     """Custom exception for data validation errors."""
-    pass
+
 
 
 class SchemaValidationError(Exception):
     """Custom exception for schema validation errors."""
-    pass
+
 
 
 def validate_file_exists(file_path: Path, file_description: str = "File") -> None:
-    """
-    Validate that a file exists and is readable.
+    """Validate that a file exists and is readable.
 
     Args:
         file_path: Path to file
@@ -32,6 +30,7 @@ def validate_file_exists(file_path: Path, file_description: str = "File") -> Non
     Raises:
         FileNotFoundError: If file doesn't exist
         PermissionError: If file isn't readable
+
     """
     if not file_path.exists():
         raise FileNotFoundError(
@@ -44,7 +43,7 @@ def validate_file_exists(file_path: Path, file_description: str = "File") -> Non
 
     # Check readability
     try:
-        with open(file_path, 'r') as f:
+        with open(file_path) as f:
             f.read(1)
     except PermissionError:
         raise PermissionError(f"{file_description} is not readable: {file_path}")
@@ -52,12 +51,11 @@ def validate_file_exists(file_path: Path, file_description: str = "File") -> Non
 
 def validate_dataframe_schema(
     df: pd.DataFrame,
-    required_columns: List[str],
-    optional_columns: Optional[List[str]] = None,
+    required_columns: list[str],
+    optional_columns: list[str] | None = None,
     data_description: str = "DataFrame"
 ) -> None:
-    """
-    Validate DataFrame schema has required columns.
+    """Validate DataFrame schema has required columns.
 
     Args:
         df: DataFrame to validate
@@ -67,6 +65,7 @@ def validate_dataframe_schema(
 
     Raises:
         SchemaValidationError: If required columns are missing
+
     """
     if df is None or df.empty:
         raise DataValidationError(f"{data_description} is empty or None")
@@ -93,8 +92,7 @@ def validate_id_column(
     allow_duplicates: bool = False,
     data_description: str = "DataFrame"
 ) -> None:
-    """
-    Validate ID column integrity.
+    """Validate ID column integrity.
 
     Args:
         df: DataFrame to validate
@@ -104,6 +102,7 @@ def validate_id_column(
 
     Raises:
         DataValidationError: If validation fails
+
     """
     if id_column not in df.columns:
         raise SchemaValidationError(
@@ -131,11 +130,10 @@ def validate_id_column(
 def validate_target_column(
     df: pd.DataFrame,
     target_column: str = 'TARGET',
-    expected_values: Optional[List] = None,
+    expected_values: list | None = None,
     data_description: str = "DataFrame"
 ) -> None:
-    """
-    Validate target column for classification.
+    """Validate target column for classification.
 
     Args:
         df: DataFrame to validate
@@ -145,6 +143,7 @@ def validate_target_column(
 
     Raises:
         DataValidationError: If validation fails
+
     """
     if target_column not in df.columns:
         raise SchemaValidationError(
@@ -184,8 +183,7 @@ def validate_prediction_probabilities(
     probabilities: np.ndarray,
     data_description: str = "Predictions"
 ) -> None:
-    """
-    Validate prediction probabilities are in valid range.
+    """Validate prediction probabilities are in valid range.
 
     Args:
         probabilities: Array of probabilities
@@ -193,6 +191,7 @@ def validate_prediction_probabilities(
 
     Raises:
         DataValidationError: If validation fails
+
     """
     if probabilities is None:
         raise DataValidationError(f"{data_description} is None")
@@ -226,12 +225,11 @@ def validate_prediction_probabilities(
 
 def validate_feature_names_match(
     df: pd.DataFrame,
-    expected_features: List[str],
+    expected_features: list[str],
     allow_subset: bool = False,
     data_description: str = "DataFrame"
 ) -> None:
-    """
-    Validate DataFrame features match expected feature names.
+    """Validate DataFrame features match expected feature names.
 
     Args:
         df: DataFrame to validate
@@ -241,6 +239,7 @@ def validate_feature_names_match(
 
     Raises:
         SchemaValidationError: If features don't match
+
     """
     df_features = set(df.columns)
     expected_set = set(expected_features)
@@ -271,9 +270,8 @@ def validate_no_constant_features(
     df: pd.DataFrame,
     threshold: float = 0.99,
     data_description: str = "DataFrame"
-) -> List[str]:
-    """
-    Identify features with constant or near-constant values.
+) -> list[str]:
+    """Identify features with constant or near-constant values.
 
     Args:
         df: DataFrame to validate
@@ -285,6 +283,7 @@ def validate_no_constant_features(
 
     Warns:
         If constant features are found
+
     """
     constant_features = []
 
@@ -294,10 +293,9 @@ def validate_no_constant_features(
             most_common_freq = df[col].value_counts(normalize=True).iloc[0]
             if most_common_freq >= threshold:
                 constant_features.append(col)
-        else:
-            # For numeric, check if std is near zero
-            if df[col].std() < 1e-10:
-                constant_features.append(col)
+        # For numeric, check if std is near zero
+        elif df[col].std() < 1e-10:
+            constant_features.append(col)
 
     if constant_features:
         warnings.warn(
@@ -311,9 +309,8 @@ def validate_no_constant_features(
 def validate_data_quality_summary(
     df: pd.DataFrame,
     data_description: str = "DataFrame"
-) -> Dict[str, any]:
-    """
-    Comprehensive data quality check and summary.
+) -> dict[str, any]:
+    """Comprehensive data quality check and summary.
 
     Args:
         df: DataFrame to validate
@@ -321,6 +318,7 @@ def validate_data_quality_summary(
 
     Returns:
         Dictionary with quality metrics
+
     """
     print(f"\n{'='*80}")
     print(f"DATA QUALITY SUMMARY: {data_description}")
@@ -340,12 +338,12 @@ def validate_data_quality_summary(
     quality['columns_with_missing'] = cols_with_missing
     quality['max_missing_pct'] = missing_pct.max()
 
-    print(f"\nMissing Values:")
+    print("\nMissing Values:")
     print(f"  Columns with missing: {cols_with_missing}/{len(df.columns)}")
     print(f"  Max missing %: {missing_pct.max():.2f}%")
 
     if cols_with_missing > 0:
-        print(f"  Top 5 columns by missing %:")
+        print("  Top 5 columns by missing %:")
         top_missing = missing_pct[missing_pct > 0].sort_values(ascending=False).head(5)
         for col, pct in top_missing.items():
             print(f"    - {col}: {pct:.2f}%")
@@ -353,7 +351,7 @@ def validate_data_quality_summary(
     # Data types
     dtype_counts = df.dtypes.value_counts()
     quality['dtypes'] = dtype_counts.to_dict()
-    print(f"\nData Types:")
+    print("\nData Types:")
     for dtype, count in dtype_counts.items():
         print(f"  {dtype}: {count} columns")
 
@@ -363,7 +361,7 @@ def validate_data_quality_summary(
     if duplicate_rows > 0:
         print(f"\n[WARNING] Duplicate rows: {duplicate_rows}")
     else:
-        print(f"\n[OK] No duplicate rows")
+        print("\n[OK] No duplicate rows")
 
     # Memory usage
     memory_mb = df.memory_usage(deep=True).sum() / 1024**2

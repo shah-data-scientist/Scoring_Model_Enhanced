@@ -1,5 +1,4 @@
-"""
-Extract Feature Importance from Production Model.
+"""Extract Feature Importance from Production Model.
 
 This script:
 1. Loads the production model from MLflow
@@ -8,13 +7,14 @@ This script:
 4. Maps engineered features back to raw features
 5. Saves configuration files for API validation
 """
-import mlflow
-import mlflow.sklearn
-import pandas as pd
-import numpy as np
 import json
 import sys
 from pathlib import Path
+
+import mlflow
+import mlflow.sklearn
+import numpy as np
+import pandas as pd
 
 # Add project root to Python path
 PROJECT_ROOT = Path(__file__).parent.parent.parent
@@ -118,8 +118,7 @@ def identify_critical_features(importance_df, threshold=0.85, max_features=50):
     return critical_features, importance_df['feature'].tolist()
 
 def map_engineered_to_raw_features(feature_names):
-    """
-    Map engineered features back to raw features.
+    """Map engineered features back to raw features.
 
     This analyzes feature names to identify which raw data files
     and columns they originate from.
@@ -211,8 +210,7 @@ def load_feature_names():
         df = pd.read_csv(feature_names_file)
         if 'feature' in df.columns:
             return df['feature'].tolist()
-        else:
-            return df.iloc[:, 0].tolist()
+        return df.iloc[:, 0].tolist()
 
     # Fallback: load from X_train columns
     x_train_file = PROJECT_ROOT / "data" / "processed" / "X_train.csv"
@@ -328,7 +326,7 @@ def main():
         print(f"Total features: {len(all_features)}")
         print(f"Critical features: {len(critical_features)}")
         print(f"Raw data sources: {list(raw_sources.keys())}")
-        print(f"\nTop 20 critical features:")
+        print("\nTop 20 critical features:")
         for i, feat in enumerate(critical_features[:20], 1):
             imp = importance_df[importance_df['feature'] == feat]['importance'].values[0]
             print(f"  {i:2d}. {feat:50s} {imp:.6f}")

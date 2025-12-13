@@ -1,6 +1,7 @@
 """Verify API predictions match expected values for end user tests."""
-import requests
 import os
+
+import requests
 
 # Test batch predictions endpoint with new end user tests
 files_dir = 'data/samples'

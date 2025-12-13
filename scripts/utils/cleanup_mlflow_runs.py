@@ -1,5 +1,4 @@
-"""
-Clean up MLflow runs with minimal value
+"""Clean up MLflow runs with minimal value
 
 This script removes:
 1. Optuna runs with only fbeta_score (no ROC-AUC, no artifacts)
@@ -14,10 +13,12 @@ Keeps:
 """
 import sys
 from pathlib import Path
+
 sys.path.append(str(Path(__file__).parent))
 
 import mlflow
 from mlflow.tracking import MlflowClient
+
 from src.config import MLFLOW_TRACKING_URI
 
 mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)

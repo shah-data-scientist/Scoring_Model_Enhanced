@@ -1,23 +1,21 @@
-"""
-Tests for validation module.
+"""Tests for validation module.
 
 Run with: poetry run pytest tests/test_validation.py -v
 """
-import pytest
-import pandas as pd
+
 import numpy as np
-from pathlib import Path
-import tempfile
+import pandas as pd
+import pytest
 
 from src.validation import (
-    validate_file_exists,
-    validate_dataframe_schema,
-    validate_id_column,
-    validate_target_column,
-    validate_prediction_probabilities,
-    validate_feature_names_match,
     DataValidationError,
-    SchemaValidationError
+    SchemaValidationError,
+    validate_dataframe_schema,
+    validate_feature_names_match,
+    validate_file_exists,
+    validate_id_column,
+    validate_prediction_probabilities,
+    validate_target_column,
 )
 
 

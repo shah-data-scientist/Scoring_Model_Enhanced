@@ -34,6 +34,7 @@ dependencies = [
     "lightgbm (>=4.0.0,<5.0.0)",
     "optuna (>=4.6.0,<5.0.0)",
     "pyyaml (>=6.0.3,<7.0.0)",
+    "python-multipart ==0.0.20", # Added for FastAPI form data processing
 ]
 
 [tool.poetry]

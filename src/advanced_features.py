@@ -1,5 +1,4 @@
-"""
-Advanced Feature Engineering for Credit Scoring - Target: 0.82 ROC-AUC
+"""Advanced Feature Engineering for Credit Scoring - Target: 0.82 ROC-AUC
 
 This module implements sophisticated features based on:
 - Home Credit Default Risk competition winners
@@ -14,16 +13,33 @@ Key Principles:
 5. Credit behavior patterns (payment burden, utilization)
 """
 
-import pandas as pd
-import numpy as np
-from typing import List, Tuple
+import json
 import warnings
+from pathlib import Path
+
+import numpy as np
+import pandas as pd
+
+# Load global statistics (for consistent dataset-level features)
+_GLOBAL_STATS = None
+
+def _load_global_stats():
+    """Load global statistics from training data (lazy loading)."""
+    global _GLOBAL_STATS
+    if _GLOBAL_STATS is None:
+        stats_file = Path(__file__).parent.parent / 'data' / 'processed' / 'global_statistics.json'
+        if stats_file.exists():
+            with open(stats_file, 'r') as f:
+                _GLOBAL_STATS = json.load(f)
+        else:
+            _GLOBAL_STATS = {}  # Empty dict if file doesn't exist
+    return _GLOBAL_STATS
+
 warnings.filterwarnings('ignore')
 
 
 def create_advanced_ext_source_features(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Create advanced EXT_SOURCE features.
+    """Create advanced EXT_SOURCE features.
 
     EXT_SOURCE_1, 2, 3 are the MOST PREDICTIVE features in credit scoring.
     Winners of Kaggle competitions created 20-30 features from these alone.
@@ -77,8 +93,7 @@ def create_advanced_ext_source_features(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def create_missing_value_features(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Missing values are INFORMATIVE in credit data.
+    """Missing values are INFORMATIVE in credit data.
     Clients who don't provide certain information often have different risk profiles.
     """
     df = df.copy()
@@ -110,8 +125,7 @@ def create_missing_value_features(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def create_time_based_features(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Time-based features capture life stage and stability.
+    """Time-based features capture life stage and stability.
     """
     df = df.copy()
     print("  Creating time-based features...")
@@ -155,8 +169,7 @@ def create_time_based_features(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def create_credit_behavior_features(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Advanced credit behavior features - payment burden, efficiency.
+    """Advanced credit behavior features - payment burden, efficiency.
     """
     df = df.copy()
     print("  Creating credit behavior features...")
@@ -206,8 +219,7 @@ def create_credit_behavior_features(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def create_bureau_aggregation_features(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Advanced aggregations from bureau data (if available from feature_aggregation).
+    """Advanced aggregations from bureau data (if available from feature_aggregation).
     """
     df = df.copy()
     print("  Creating advanced bureau aggregation features...")
@@ -244,8 +256,7 @@ def create_bureau_aggregation_features(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def create_interaction_features(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Create interactions between highly predictive features.
+    """Create interactions between highly predictive features.
     """
     df = df.copy()
     print("  Creating interaction features...")
@@ -274,33 +285,63 @@ def create_interaction_features(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def create_categorical_aggregations(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Create aggregations within categorical groups.
+def create_categorical_aggregations(df: pd.DataFrame, use_global_stats: bool = True) -> pd.DataFrame:
+    """Create aggregations within categorical groups.
+    
+    Args:
+        df: DataFrame with application data
+        use_global_stats: If True, use global statistics from training data
+                         (ensures consistency). If False, compute from current batch.
     """
     df = df.copy()
     print("  Creating categorical aggregation features...")
+
+    # Load global statistics if requested
+    global_stats = _load_global_stats() if use_global_stats else {}
 
     # Income by occupation/organization
     if 'AMT_INCOME_TOTAL' in df.columns:
         for cat_col in ['OCCUPATION_TYPE', 'ORGANIZATION_TYPE', 'NAME_EDUCATION_TYPE']:
             if cat_col in df.columns:
-                # Group mean
-                group_means = df.groupby(cat_col)['AMT_INCOME_TOTAL'].transform('mean')
+                # Use global means from training if available
+                stat_key = f'{cat_col}_INCOME_MEAN'
+                
+                if use_global_stats and stat_key in global_stats:
+                    # Map each row to its group's training mean
+                    group_means = df[cat_col].map(global_stats[stat_key])
+                    # Fill missing categories with overall mean
+                    if group_means.isna().any():
+                        overall_mean = df['AMT_INCOME_TOTAL'].mean()
+                        group_means = group_means.fillna(overall_mean)
+                else:
+                    # Fallback: compute from current batch
+                    group_means = df.groupby(cat_col)['AMT_INCOME_TOTAL'].transform('mean')
+                
                 df[f'INCOME_VS_{cat_col}_MEAN'] = df['AMT_INCOME_TOTAL'] / (group_means + 1e-5)
 
     # Credit amount by contract type
     if 'AMT_CREDIT' in df.columns and 'NAME_CONTRACT_TYPE' in df.columns:
-        group_means = df.groupby('NAME_CONTRACT_TYPE')['AMT_CREDIT'].transform('mean')
+        stat_key = 'NAME_CONTRACT_TYPE_CREDIT_MEAN'
+        
+        if use_global_stats and stat_key in global_stats:
+            # Map to training means
+            group_means = df['NAME_CONTRACT_TYPE'].map(global_stats[stat_key])
+            if group_means.isna().any():
+                overall_mean = df['AMT_CREDIT'].mean()
+                group_means = group_means.fillna(overall_mean)
+        else:
+            # Fallback: compute from current batch
+            group_means = df.groupby('NAME_CONTRACT_TYPE')['AMT_CREDIT'].transform('mean')
+        
         df['CREDIT_VS_CONTRACT_MEAN'] = df['AMT_CREDIT'] / (group_means + 1e-5)
 
-    print(f"    Created ~{5} categorical aggregation features")
+    mode_msg = "global statistics" if use_global_stats else "batch statistics"
+    print(f"    Created ~{5} categorical aggregation features (using {mode_msg})")
     return df
 
 
 def create_all_advanced_features(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Create ALL advanced features for maximum performance.
+    """Create ALL advanced features for maximum performance.
 
     This function orchestrates all advanced feature engineering techniques
     to help reach the target of 0.82 ROC-AUC.
@@ -323,7 +364,7 @@ def create_all_advanced_features(df: pd.DataFrame) -> pd.DataFrame:
     new_features = final_features - initial_features
 
     print("="*80)
-    print(f"FEATURE ENGINEERING COMPLETE")
+    print("FEATURE ENGINEERING COMPLETE")
     print(f"  Initial features: {initial_features}")
     print(f"  Final features:   {final_features}")
     print(f"  New features:     {new_features}")

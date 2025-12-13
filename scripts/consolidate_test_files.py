@@ -1,14 +1,15 @@
 
-import pandas as pd
-from pathlib import Path
-import glob
 import os
+from pathlib import Path
+
+import pandas as pd
+
 
 def consolidate_test_files():
     # Define paths
-    base_dir = Path(".")
+    base_dir = Path()
     input_dir = base_dir / "data" / "end_user_tests"
-    
+
     if not input_dir.exists():
         print(f"Error: Directory {input_dir} not found.")
         return
@@ -31,18 +32,18 @@ def consolidate_test_files():
         # Pattern: *_{source_name}
         # Note: application.csv might match "previous_application.csv" if we aren't careful.
         # So we check the suffix carefully.
-        
+
         pattern = f"*{source_name}"
         files_to_merge = []
-        
+
         # Iterate over all files to safely filter
         for file_path in input_dir.glob("*.csv"):
             fname = file_path.name
-            
+
             # Skip files that are exactly the source name (if they already exist from a previous run)
             if fname == source_name:
                 continue
-                
+
             # Check if file ends with the source name
             # Special handling to avoid overlapping names (e.g. application.csv vs previous_application.csv)
             if fname.endswith(f"_{source_name}"):
@@ -58,7 +59,7 @@ def consolidate_test_files():
             continue
 
         print(f"  Merging {len(files_to_merge)} files into {source_name}...")
-        
+
         dfs = []
         for fp in files_to_merge:
             try:
@@ -66,23 +67,23 @@ def consolidate_test_files():
                 dfs.append(df)
             except Exception as e:
                 print(f"    Error reading {fp.name}: {e}")
-        
+
         if dfs:
             consolidated_df = pd.concat(dfs, ignore_index=True)
             output_path = input_dir / source_name
             consolidated_df.to_csv(output_path, index=False)
             print(f"    Saved {output_path} ({len(consolidated_df)} rows)")
-            
+
             # Optional: Delete the individual files after merging?
-            # User said "consolidate", usually implies replacing or grouping. 
-            # I will remove the individual fragments to keep it clean as per "consolidate these files" 
+            # User said "consolidate", usually implies replacing or grouping.
+            # I will remove the individual fragments to keep it clean as per "consolidate these files"
             # effectively replacing the many small files with the few large ones.
             for fp in files_to_merge:
                 try:
                     os.remove(fp)
                 except OSError as e:
                     print(f"    Could not remove {fp.name}: {e}")
-        
+
     print("\nConsolidation complete.")
 
 if __name__ == "__main__":

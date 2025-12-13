@@ -1,25 +1,29 @@
-"""
-Add artifacts to MLflow runs with feature type categorization.
+"""Add artifacts to MLflow runs with feature type categorization.
 
 This script retroactively adds visualization artifacts to existing MLflow runs,
 with feature importance plots that color-code features by type (baseline, domain, polynomial, aggregated).
 """
 import warnings
+
 warnings.filterwarnings('ignore')
 
-import mlflow
-from mlflow import MlflowClient
-import pandas as pd
-import numpy as np
 from pathlib import Path
-from sklearn.model_selection import StratifiedKFold
-from sklearn.metrics import (
-    confusion_matrix, roc_curve, auc, precision_recall_curve,
-    roc_auc_score, average_precision_score
-)
+
 import matplotlib.pyplot as plt
+import mlflow
+import numpy as np
+import pandas as pd
 import seaborn as sns
 from lightgbm import LGBMClassifier
+from mlflow import MlflowClient
+from sklearn.metrics import (
+    auc,
+    average_precision_score,
+    confusion_matrix,
+    precision_recall_curve,
+    roc_curve,
+)
+from sklearn.model_selection import StratifiedKFold
 
 # Setup paths
 PROJECT_ROOT = Path(__file__).parent.parent.parent
@@ -31,11 +35,11 @@ mlflow.set_tracking_uri(f"sqlite:///{MLRUNS_DIR}/mlflow.db")
 
 
 def categorize_features(feature_names):
-    """
-    Categorize features by type.
+    """Categorize features by type.
 
     Returns:
         dict: Dictionary mapping feature types to lists of feature names
+
     """
     categories = {
         'baseline': [],
@@ -132,13 +136,13 @@ def plot_pr_curve(y_true, y_proba, save_path):
 
 
 def plot_feature_importance_with_types(model, feature_names, save_path):
-    """
-    Create feature importance plot with color-coding by feature type.
+    """Create feature importance plot with color-coding by feature type.
 
     Args:
         model: Trained model with feature_importances_
         feature_names: List of feature names
         save_path: Path to save plot
+
     """
     # Get feature importances
     importances = model.feature_importances_
@@ -236,8 +240,7 @@ def load_training_data():
 
 
 def add_artifacts_to_run(run_id, run_name, X, y, params, feature_strategy):
-    """
-    Generate and add artifacts to a specific MLflow run.
+    """Generate and add artifacts to a specific MLflow run.
 
     Args:
         run_id: MLflow run ID
@@ -246,6 +249,7 @@ def add_artifacts_to_run(run_id, run_name, X, y, params, feature_strategy):
         y: Training labels
         params: Model parameters from the run
         feature_strategy: Feature strategy used (for logging)
+
     """
     print(f"\n[OK] Processing run: {run_name}")
     print(f"  Run ID: {run_id}")
@@ -296,7 +300,7 @@ def add_artifacts_to_run(run_id, run_name, X, y, params, feature_strategy):
         artifact_dir.mkdir(parents=True, exist_ok=True)
 
         # Generate and save artifacts
-        print(f"  Generating artifacts...")
+        print("  Generating artifacts...")
 
         # 1. Confusion Matrix
         cm_path = artifact_dir / 'confusion_matrix.png'
@@ -314,7 +318,7 @@ def add_artifacts_to_run(run_id, run_name, X, y, params, feature_strategy):
         fi_path = artifact_dir / 'feature_importance.png'
         plot_feature_importance_with_types(final_model, X.columns.tolist(), fi_path)
 
-        print(f"  [OK] Created 5 artifacts (4 plots + 1 CSV)")
+        print("  [OK] Created 5 artifacts (4 plots + 1 CSV)")
 
     except Exception as e:
         print(f"  [ERROR] Failed to add artifacts: {e}")
@@ -340,7 +344,7 @@ def main():
     )
 
     print(f"\nFound {len(runs)} runs in feature engineering experiment")
-    print(f"Processing top 10 runs...")
+    print("Processing top 10 runs...")
 
     # Process each run
     for i, run in enumerate(runs, 1):

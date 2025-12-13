@@ -1,5 +1,4 @@
-"""
-Analyze and clean up disk space in the repository.
+"""Analyze and clean up disk space in the repository.
 
 This script identifies and optionally removes:
 - Python cache files (__pycache__, *.pyc)
@@ -15,10 +14,9 @@ Usage:
     poetry run python scripts/cleanup_disk_space.py --clean
 """
 
-import os
 import shutil
-from pathlib import Path
 import sys
+from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).parent.parent
 
@@ -141,10 +139,10 @@ def analyze_disk_usage():
 
     potential_savings = total_cache_size + total_backup_size
 
-    print(f"\nPotential disk space savings:")
+    print("\nPotential disk space savings:")
     print(f"  Python cache:    {format_size(total_cache_size)}")
     print(f"  Backup dirs:     {format_size(total_backup_size)}")
-    print(f"  " + "-" * 30)
+    print("  " + "-" * 30)
     print(f"  TOTAL:           {format_size(potential_savings)}")
     print()
 
@@ -198,11 +196,11 @@ def clean_backups(data):
     to_remove = PROJECT_ROOT / 'mlruns_backup'
 
     if to_remove.exists():
-        print(f"  Removing mlruns_backup (duplicate)...")
+        print("  Removing mlruns_backup (duplicate)...")
         try:
             shutil.rmtree(to_remove)
             size = get_dir_size(to_remove) if to_remove.exists() else data['total_backup_size'] / 2
-            print(f"  Removed mlruns_backup")
+            print("  Removed mlruns_backup")
             print(f"  Freed: ~{format_size(size)}")
         except Exception as e:
             print(f"  Error: {e}")
@@ -212,7 +210,6 @@ def clean_backups(data):
 
 def main():
     """Main cleanup function."""
-
     if '--clean' in sys.argv:
         print("\n⚠️  CLEANUP MODE - Files will be deleted!\n")
         response = input("Are you sure you want to clean up? (yes/no): ")

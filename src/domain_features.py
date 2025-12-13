@@ -1,16 +1,15 @@
-"""
-Domain Knowledge Feature Engineering
+"""Domain Knowledge Feature Engineering
 
 This module contains functions to create domain-specific features
 based on financial knowledge and business logic.
 """
 
-import pandas as pd
 import numpy as np
+import pandas as pd
+
 
 def create_domain_features(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Create domain-based features using financial knowledge.
+    """Create domain-based features using financial knowledge.
 
     Educational Note:
     -----------------
@@ -19,15 +18,16 @@ def create_domain_features(df: pd.DataFrame) -> pd.DataFrame:
     - Flags: Binary indicators of important conditions
     - Transformations: Handle skewed distributions
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     df : pd.DataFrame
         Input dataframe
 
-    Returns:
-    --------
+    Returns
+    -------
     pd.DataFrame
         Dataframe with new domain features
+
     """
     df = df.copy()
     print("Creating domain features...")
@@ -57,7 +57,7 @@ def create_domain_features(df: pd.DataFrame) -> pd.DataFrame:
     if 'AMT_CREDIT' in df.columns and 'AMT_INCOME_TOTAL' in df.columns:
         # Debt-to-Income Ratio (KEY FEATURE!)
         df['DEBT_TO_INCOME_RATIO'] = df['AMT_CREDIT'] / (df['AMT_INCOME_TOTAL'] + 1e-5)
-    
+
     if 'AMT_CREDIT' in df.columns and 'AMT_GOODS_PRICE' in df.columns:
         # Credit to goods price ratio
         df['CREDIT_TO_GOODS_RATIO'] = df['AMT_CREDIT'] / (df['AMT_GOODS_PRICE'] + 1e-5)

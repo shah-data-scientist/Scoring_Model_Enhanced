@@ -1,5 +1,4 @@
-"""
-Batch Predictions Endpoint for Raw CSV Files
+"""Batch Predictions Endpoint for Raw CSV Files
 
 Handles batch predictions from raw CSV uploads:
 1. Accept 7 CSV files
@@ -10,25 +9,30 @@ Handles batch predictions from raw CSV uploads:
 6. Return results with risk levels
 """
 
-from fastapi import APIRouter, UploadFile, File, HTTPException, status, Depends
-from fastapi.responses import JSONResponse, StreamingResponse
-from pydantic import BaseModel, Field
-from typing import List, Dict, Optional
-from datetime import datetime
-from sqlalchemy.orm import Session
-import pandas as pd
-import numpy as np
-import mlflow
 import io
-import json
+import logging
+import time
+from datetime import datetime
 
-from api.file_validation import validate_all_files, get_file_summaries
+import numpy as np
+import pandas as pd
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
+from fastapi.responses import StreamingResponse
+from pydantic import BaseModel, Field
+from sqlalchemy.orm import Session
+
+from api.file_validation import get_file_summaries, validate_all_files
 from api.preprocessing_pipeline import PreprocessingPipeline
-from backend.database import get_db
+from api.utils.logging import setup_production_logger, log_batch_prediction, log_error
 from backend import crud
+from backend.database import get_db
 
 # Create router
 router = APIRouter(prefix="/batch", tags=["Batch Predictions"])
+
+# Setup production logger
+production_logger = setup_production_logger()
+logger = logging.getLogger(__name__)
 
 # Global preprocessing pipeline
 preprocessing_pipeline = None
@@ -38,7 +42,8 @@ def get_preprocessing_pipeline():
     """Get or create preprocessing pipeline instance."""
     global preprocessing_pipeline
     if preprocessing_pipeline is None:
-        preprocessing_pipeline = PreprocessingPipeline()
+        # Disable precomputed cache to ensure consistent predictions
+        preprocessing_pipeline = PreprocessingPipeline(use_precomputed=False)
     return preprocessing_pipeline
 
 
@@ -48,6 +53,7 @@ def get_preprocessing_pipeline():
 
 class BatchPredictionResult(BaseModel):
     """Single prediction result."""
+
     sk_id_curr: int = Field(..., description="Application ID")
     prediction: int = Field(..., description="Predicted class (0=no default, 1=default)")
     probability: float = Field(..., description="Probability of default [0-1]")
@@ -55,24 +61,26 @@ class BatchPredictionResult(BaseModel):
 
 class BatchPredictionResponse(BaseModel):
     """Response for batch predictions."""
+
     success: bool
     timestamp: str
     n_applications: int
     n_predictions: int
-    file_summaries: Dict
-    predictions: List[BatchPredictionResult]
-    download_url: Optional[str] = None
+    file_summaries: dict
+    predictions: list[BatchPredictionResult]
+    download_url: str | None = None
     model_version: str
-    batch_id: Optional[int] = None  # Database batch ID for retrieval
+    batch_id: int | None = None  # Database batch ID for retrieval
 
 
 class ValidationResponse(BaseModel):
     """Response for file validation."""
+
     success: bool
     timestamp: str
-    files_validated: List[str]
-    file_summaries: Dict
-    critical_columns_check: Dict
+    files_validated: list[str]
+    file_summaries: dict
+    critical_columns_check: dict
     message: str
 
 
@@ -81,21 +89,20 @@ class ValidationResponse(BaseModel):
 # ============================================================================
 
 def calculate_risk_level(probability: float) -> str:
-    """
-    Calculate risk level from probability.
+    """Calculate risk level from probability.
 
     Args:
         probability: Probability of default [0-1]
 
     Returns:
         Risk level string (LOW, MEDIUM, or HIGH)
+
     """
     if probability < 0.30:
         return "LOW"
-    elif probability < 0.50:
+    if probability < 0.50:
         return "MEDIUM"
-    else:
-        return "HIGH"
+    return "HIGH"
 
 
 def create_results_dataframe(
@@ -103,8 +110,7 @@ def create_results_dataframe(
     predictions: np.ndarray,
     probabilities: np.ndarray
 ) -> pd.DataFrame:
-    """
-    Create results DataFrame with predictions and risk levels.
+    """Create results DataFrame with predictions and risk levels.
 
     Args:
         sk_id_curr: Series of application IDs
@@ -113,6 +119,7 @@ def create_results_dataframe(
 
     Returns:
         Results DataFrame
+
     """
     risk_levels = [calculate_risk_level(p) for p in probabilities]
 
@@ -127,14 +134,14 @@ def create_results_dataframe(
 
 
 def dataframe_to_csv_stream(df: pd.DataFrame) -> io.BytesIO:
-    """
-    Convert DataFrame to CSV stream for download.
+    """Convert DataFrame to CSV stream for download.
 
     Args:
         df: DataFrame to convert
 
     Returns:
         BytesIO stream
+
     """
     stream = io.BytesIO()
     df.to_csv(stream, index=False)
@@ -146,62 +153,63 @@ def dataframe_to_csv_stream(df: pd.DataFrame) -> io.BytesIO:
 # API Endpoints
 # ============================================================================
 
-@router.post("/validate", response_model=ValidationResponse)
-async def validate_files(
-    application: UploadFile = File(..., description="application.csv"),
-    bureau: UploadFile = File(..., description="bureau.csv"),
-    bureau_balance: UploadFile = File(..., description="bureau_balance.csv"),
-    previous_application: UploadFile = File(..., description="previous_application.csv"),
-    credit_card_balance: UploadFile = File(..., description="credit_card_balance.csv"),
-    installments_payments: UploadFile = File(..., description="installments_payments.csv"),
-    pos_cash_balance: UploadFile = File(..., description="POS_CASH_balance.csv")
-):
-    """
-    Validate uploaded CSV files without making predictions.
-
-    Checks:
-    - All required files present
-    - File structure valid
-    - Critical columns present in application.csv
-
-    Returns:
-        Validation results
-    """
-    # Organize uploaded files
-    uploaded_files = {
-        'application.csv': application,
-        'bureau.csv': bureau,
-        'bureau_balance.csv': bureau_balance,
-        'previous_application.csv': previous_application,
-        'credit_card_balance.csv': credit_card_balance,
-        'installments_payments.csv': installments_payments,
-        'POS_CASH_balance.csv': pos_cash_balance
-    }
-
-    # Validate files
-    dataframes = validate_all_files(uploaded_files)
-
-    # Get file summaries
-    summaries = get_file_summaries(dataframes)
-
-    # Check critical columns in application.csv
-    from api.file_validation import validate_application_columns
-    is_valid, missing_cols, coverage = validate_application_columns(
-        dataframes['application.csv']
-    )
-
-    return ValidationResponse(
-        success=True,
-        timestamp=datetime.now().isoformat(),
-        files_validated=list(uploaded_files.keys()),
-        file_summaries=summaries,
-        critical_columns_check={
-            "valid": is_valid,
-            "coverage": f"{coverage*100:.1f}%",
-            "missing_columns": missing_cols if missing_cols else []
-        },
-        message="All files validated successfully"
-    )
+# UNUSED: CSV validation not used by Streamlit
+# @router.post("/validate", response_model=ValidationResponse)
+# async def validate_files(
+#     application: UploadFile = File(..., description="application.csv"),
+#     bureau: UploadFile = File(..., description="bureau.csv"),
+#     bureau_balance: UploadFile = File(..., description="bureau_balance.csv"),
+#     previous_application: UploadFile = File(..., description="previous_application.csv"),
+#     credit_card_balance: UploadFile = File(..., description="credit_card_balance.csv"),
+#     installments_payments: UploadFile = File(..., description="installments_payments.csv"),
+#     pos_cash_balance: UploadFile = File(..., description="POS_CASH_balance.csv")
+# ):
+#     """Validate uploaded CSV files without making predictions.
+#
+#     Checks:
+#     - All required files present
+#     - File structure valid
+#     - Critical columns present in application.csv
+#
+#     Returns:
+#         Validation results
+#
+#     """
+#     # Organize uploaded files
+#     uploaded_files = {
+#         'application.csv': application,
+#         'bureau.csv': bureau,
+#         'bureau_balance.csv': bureau_balance,
+#         'previous_application.csv': previous_application,
+#         'credit_card_balance.csv': credit_card_balance,
+#         'installments_payments.csv': installments_payments,
+#         'POS_CASH_balance.csv': pos_cash_balance
+#     }
+#
+#     # Validate files
+#     dataframes = validate_all_files(uploaded_files)
+#
+#     # Get file summaries
+#     summaries = get_file_summaries(dataframes)
+#
+#     # Check critical columns in application.csv
+#     from api.file_validation import validate_application_columns
+#     is_valid, missing_cols, coverage = validate_application_columns(
+#         dataframes['application.csv']
+#     )
+#
+#     return ValidationResponse(
+#         success=True,
+#         timestamp=datetime.now().isoformat(),
+#         files_validated=list(uploaded_files.keys()),
+#         file_summaries=summaries,
+#         critical_columns_check={
+#             "valid": is_valid,
+#             "coverage": f"{coverage*100:.1f}%",
+#             "missing_columns": missing_cols if missing_cols else []
+#         },
+#         message="All files validated successfully"
+#     )
 
 
 @router.post("/predict", response_model=BatchPredictionResponse)
@@ -216,8 +224,7 @@ async def predict_batch(
     db: Session = Depends(get_db),
     model = None  # Will be injected from main app
 ):
-    """
-    Batch credit scoring predictions from raw CSV files.
+    """Batch credit scoring predictions from raw CSV files.
 
     Accepts 7 CSV files, preprocesses them, stores raw data, and returns predictions.
 
@@ -233,24 +240,32 @@ async def predict_batch(
 
     Returns:
         Batch prediction results with risk levels
+
     """
     batch = None
+    start_time = time.time()
     
+    logger.info(f"Received batch prediction request")
+    logger.info(f"Files received: application={application.filename}, bureau={bureau.filename}, "
+                f"bureau_balance={bureau_balance.filename}, previous={previous_application.filename}, "
+                f"credit_card={credit_card_balance.filename}, installments={installments_payments.filename}, "
+                f"pos_cash={pos_cash_balance.filename}")
+
     try:
         # Check if model is loaded (will be handled by dependency injection)
         # For now, load from global or parameter
         if model is None:
-            # Try to load from MLflow
-            try:
-                mlflow.set_tracking_uri("sqlite:///mlruns/mlflow.db")
-                model = mlflow.lightgbm.load_model("models:/credit_scoring_production_model/Production")
-            except Exception as e:
-                # Fallback to file
-                import pickle
-                from pathlib import Path
-                model_path = Path(__file__).parent.parent / "models" / "production_model.pkl"
-                with open(model_path, 'rb') as f:
-                    model = pickle.load(f)
+            # Load from pickle file (fast and reliable)
+            import pickle
+            from pathlib import Path
+            model_path = Path(__file__).parent.parent / "models" / "production_model.pkl"
+            
+            if not model_path.exists():
+                raise FileNotFoundError(f"Model file not found: {model_path}")
+            
+            with open(model_path, 'rb') as f:
+                model = pickle.load(f)
+            logger.info(f"Model loaded from {model_path}")
 
         # Step 1: Organize uploaded files
         uploaded_files = {
@@ -327,14 +342,14 @@ async def predict_batch(
             # Use TreeExplainer for LightGBM/XGBoost
             explainer = shap.TreeExplainer(model)
             shap_values = explainer.shap_values(X)
-            
+
             # For binary classification, get values for positive class
             if isinstance(shap_values, list):
                 shap_values = shap_values[1]  # Class 1 (default)
-            
+
             shap_values_list = shap_values
             print(f"Computed SHAP values for {len(shap_values)} predictions")
-            
+
         except Exception as e:
             print(f"Warning: Failed to compute SHAP values: {e}")
             shap_values_list = None
@@ -351,20 +366,20 @@ async def predict_batch(
                 'probability': float(row['PROBABILITY']),
                 'risk_level': row['RISK_LEVEL']
             }
-            
+
             # Add SHAP values if available
             if shap_values_list is not None:
                 shap_dict = {}
                 for j, feat_name in enumerate(feature_names):
                     shap_dict[feat_name] = float(shap_values_list[i, j])
                 pred_data['shap_values'] = shap_dict
-                
+
                 # Get top 10 features by absolute SHAP value
                 sorted_features = sorted(shap_dict.items(), key=lambda x: abs(x[1]), reverse=True)[:10]
                 pred_data['top_features'] = [{'feature': f, 'shap_value': v} for f, v in sorted_features]
-            
+
             predictions_data.append(pred_data)
-        
+
         crud.create_predictions_bulk(db, batch.id, predictions_data)
 
         # Step 9: Calculate risk counts and complete batch
@@ -375,7 +390,7 @@ async def predict_batch(
             'CRITICAL': sum(1 for p in predictions_data if p['risk_level'] == 'CRITICAL')
         }
         avg_prob = float(np.mean(probabilities))
-        
+
         crud.complete_batch(
             db=db,
             batch_id=batch.id,
@@ -393,6 +408,20 @@ async def predict_batch(
                 risk_level=p['risk_level']
             ))
 
+        # Log batch prediction for monitoring
+        total_time_ms = (time.time() - start_time) * 1000
+        log_batch_prediction(
+            logger=production_logger,
+            predictions=predictions_data,
+            total_time_ms=total_time_ms,
+            num_applications=len(dataframes['application.csv']),
+            metadata={
+                "batch_id": batch.id,
+                "model_version": "Production",
+                "file_sizes": {k: len(v) for k, v in dataframes.items()}
+            }
+        )
+
         return BatchPredictionResponse(
             success=True,
             timestamp=datetime.now().isoformat(),
@@ -403,10 +432,19 @@ async def predict_batch(
             model_version="Production",
             batch_id=batch.id
         )
-        
+
     except HTTPException:
         raise
     except Exception as e:
+        # Log error
+        log_error(
+            logger=production_logger,
+            error_type=type(e).__name__,
+            error_message=str(e),
+            endpoint="/batch/predict",
+            metadata={"batch_id": batch.id if batch else None}
+        )
+
         if batch:
             crud.fail_batch(db, batch.id, str(e))
         raise HTTPException(
@@ -415,90 +453,92 @@ async def predict_batch(
         )
 
 
-@router.post("/predict/download")
-async def predict_batch_download(
-    application: UploadFile = File(...),
-    bureau: UploadFile = File(...),
-    bureau_balance: UploadFile = File(...),
-    previous_application: UploadFile = File(...),
-    credit_card_balance: UploadFile = File(...),
-    installments_payments: UploadFile = File(...),
-    pos_cash_balance: UploadFile = File(...)
-):
-    """
-    Batch predictions with CSV download.
+# UNUSED: Alternative download endpoint not used by Streamlit
+# @router.post("/predict/download")
+# async def predict_batch_download(
+#     application: UploadFile = File(...),
+#     bureau: UploadFile = File(...),
+#     bureau_balance: UploadFile = File(...),
+#     previous_application: UploadFile = File(...),
+#     credit_card_balance: UploadFile = File(...),
+#     installments_payments: UploadFile = File(...),
+#     pos_cash_balance: UploadFile = File(...)
+# ):
+#     """Batch predictions with CSV download.
+#
+#     Same as /predict but returns CSV file for download.
+#
+#     Returns:
+#         CSV file with predictions
+#
+#     """
+#     # Reuse predict_batch logic
+#     result = await predict_batch(
+#         application=application,
+#         bureau=bureau,
+#         bureau_balance=bureau_balance,
+#         previous_application=previous_application,
+#         credit_card_balance=credit_card_balance,
+#         installments_payments=installments_payments,
+#         pos_cash_balance=pos_cash_balance
+#     )
+#
+#     # Convert predictions to DataFrame
+#     predictions_data = [p.dict() for p in result.predictions]
+#     df = pd.DataFrame(predictions_data)
+#
+#     # Create CSV stream
+#     csv_stream = dataframe_to_csv_stream(df)
+#
+#     # Return as downloadable file
+#     return StreamingResponse(
+#         csv_stream,
+#         media_type="text/csv",
+#         headers={
+#             "Content-Disposition": f"attachment; filename=predictions_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+#         }
+#     )
 
-    Same as /predict but returns CSV file for download.
 
-    Returns:
-        CSV file with predictions
-    """
-    # Reuse predict_batch logic
-    result = await predict_batch(
-        application=application,
-        bureau=bureau,
-        bureau_balance=bureau_balance,
-        previous_application=previous_application,
-        credit_card_balance=credit_card_balance,
-        installments_payments=installments_payments,
-        pos_cash_balance=pos_cash_balance
-    )
-
-    # Convert predictions to DataFrame
-    predictions_data = [p.dict() for p in result.predictions]
-    df = pd.DataFrame(predictions_data)
-
-    # Create CSV stream
-    csv_stream = dataframe_to_csv_stream(df)
-
-    # Return as downloadable file
-    return StreamingResponse(
-        csv_stream,
-        media_type="text/csv",
-        headers={
-            "Content-Disposition": f"attachment; filename=predictions_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
-        }
-    )
-
-
-@router.get("/info")
-async def batch_info():
-    """
-    Get information about batch prediction endpoint.
-
-    Returns:
-        Endpoint information and requirements
-    """
-    return {
-        "endpoint": "/batch/predict",
-        "method": "POST",
-        "description": "Batch credit scoring predictions from raw CSV files",
-        "required_files": [
-            "application.csv",
-            "bureau.csv",
-            "bureau_balance.csv",
-            "previous_application.csv",
-            "credit_card_balance.csv",
-            "installments_payments.csv",
-            "POS_CASH_balance.csv"
-        ],
-        "critical_columns": {
-            "application.csv": 46,
-            "threshold": "85%"
-        },
-        "output_format": {
-            "SK_ID_CURR": "int",
-            "PREDICTION": "int (0=no default, 1=default)",
-            "PROBABILITY": "float [0-1]",
-            "RISK_LEVEL": "str (LOW/MEDIUM/HIGH/CRITICAL)"
-        },
-        "risk_levels": {
-            "LOW": "probability < 0.2",
-            "MEDIUM": "0.2 <= probability < 0.4",
-            "HIGH": "0.4 <= probability < 0.6",
-            "CRITICAL": "probability >= 0.6"
-        }
-    }
+# UNUSED: Batch info endpoint not used by Streamlit
+# @router.get("/info")
+# async def batch_info():
+#     """Get information about batch prediction endpoint.
+#
+#     Returns:
+#         Endpoint information and requirements
+#
+#     """
+#     return {
+#         "endpoint": "/batch/predict",
+#         "method": "POST",
+#         "description": "Batch credit scoring predictions from raw CSV files",
+#         "required_files": [
+#             "application.csv",
+#             "bureau.csv",
+#             "bureau_balance.csv",
+#             "previous_application.csv",
+#             "credit_card_balance.csv",
+#             "installments_payments.csv",
+#             "POS_CASH_balance.csv"
+#         ],
+#         "critical_columns": {
+#             "application.csv": 46,
+#             "threshold": "85%"
+#         },
+#         "output_format": {
+#             "SK_ID_CURR": "int",
+#             "PREDICTION": "int (0=no default, 1=default)",
+#             "PROBABILITY": "float [0-1]",
+#             "RISK_LEVEL": "str (LOW/MEDIUM/HIGH/CRITICAL)"
+#         },
+#         "risk_levels": {
+#             "LOW": "probability < 0.2",
+#             "MEDIUM": "0.2 <= probability < 0.4",
+#             "HIGH": "0.4 <= probability < 0.6",
+#             "CRITICAL": "probability >= 0.6"
+#         }
+#     }
 
 
 # ============================================================================
@@ -511,8 +551,7 @@ async def get_batch_history(
     limit: int = 50,
     db: Session = Depends(get_db)
 ):
-    """
-    Get recent batch prediction history.
+    """Get recent batch prediction history.
 
     Args:
         skip: Number of records to skip (pagination)
@@ -520,9 +559,10 @@ async def get_batch_history(
 
     Returns:
         List of recent batches with summary info
+
     """
     batches = crud.get_recent_batches(db, skip=skip, limit=limit)
-    
+
     return {
         "success": True,
         "count": len(batches),
@@ -549,61 +589,62 @@ async def get_batch_history(
     }
 
 
-@router.get("/history/{batch_id}")
-async def get_batch_details(
-    batch_id: int,
-    db: Session = Depends(get_db)
-):
-    """
-    Get detailed information about a specific batch.
-
-    Args:
-        batch_id: The batch ID
-
-    Returns:
-        Batch details with all predictions
-    """
-    batch = crud.get_batch(db, batch_id)
-    
-    if not batch:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Batch {batch_id} not found"
-        )
-    
-    # Get predictions for this batch
-    predictions = crud.get_batch_predictions(db, batch_id)
-    
-    return {
-        "success": True,
-        "batch": {
-            "id": batch.id,
-            "batch_name": batch.batch_name,
-            "status": batch.status.value,
-            "total_applications": batch.total_applications,
-            "processed_applications": batch.processed_applications,
-            "avg_probability": batch.avg_probability,
-            "risk_distribution": {
-                "LOW": batch.risk_low_count,
-                "MEDIUM": batch.risk_medium_count,
-                "HIGH": batch.risk_high_count,
-                "CRITICAL": batch.risk_critical_count
-            },
-            "processing_time_seconds": batch.processing_time_seconds,
-            "created_at": batch.created_at.isoformat() if batch.created_at else None,
-            "completed_at": batch.completed_at.isoformat() if batch.completed_at else None,
-            "error_message": batch.error_message
-        },
-        "predictions": [
-            {
-                "sk_id_curr": p.sk_id_curr,
-                "prediction": p.prediction,
-                "probability": p.probability,
-                "risk_level": p.risk_level.value
-            }
-            for p in predictions
-        ]
-    }
+# UNUSED: Single batch details endpoint not used by Streamlit
+# @router.get("/history/{batch_id}")
+# async def get_batch_details(
+#     batch_id: int,
+#     db: Session = Depends(get_db)
+# ):
+#     """Get detailed information about a specific batch.
+#
+#     Args:
+#         batch_id: The batch ID
+#
+#     Returns:
+#         Batch details with all predictions
+#
+#     """
+#     batch = crud.get_batch(db, batch_id)
+#
+#     if not batch:
+#         raise HTTPException(
+#             status_code=status.HTTP_404_NOT_FOUND,
+#             detail=f"Batch {batch_id} not found"
+#         )
+#
+#     # Get predictions for this batch
+#     predictions = crud.get_batch_predictions(db, batch_id)
+#
+#     return {
+#         "success": True,
+#         "batch": {
+#             "id": batch.id,
+#             "batch_name": batch.batch_name,
+#             "status": batch.status.value,
+#             "total_applications": batch.total_applications,
+#             "processed_applications": batch.processed_applications,
+#             "avg_probability": batch.avg_probability,
+#             "risk_distribution": {
+#                 "LOW": batch.risk_low_count,
+#                 "MEDIUM": batch.risk_medium_count,
+#                 "HIGH": batch.risk_high_count,
+#                 "CRITICAL": batch.risk_critical_count
+#             },
+#             "processing_time_seconds": batch.processing_time_seconds,
+#             "created_at": batch.created_at.isoformat() if batch.created_at else None,
+#             "completed_at": batch.completed_at.isoformat() if batch.completed_at else None,
+#             "error_message": batch.error_message
+#         },
+#         "predictions": [
+#             {
+#                 "sk_id_curr": p.sk_id_curr,
+#                 "prediction": p.prediction,
+#                 "probability": p.probability,
+#                 "risk_level": p.risk_level.value
+#             }
+#             for p in predictions
+#         ]
+#     }
 
 
 @router.get("/history/{batch_id}/download")
@@ -612,8 +653,7 @@ async def download_batch_results(
     format: str = "json",  # json or csv
     db: Session = Depends(get_db)
 ):
-    """
-    Download batch predictions with SHAP values.
+    """Download batch predictions with SHAP values.
 
     Args:
         batch_id: The batch ID
@@ -621,24 +661,25 @@ async def download_batch_results(
 
     Returns:
         JSON with predictions and SHAP values, or CSV file
+
     """
     batch = crud.get_batch(db, batch_id)
-    
+
     if not batch:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Batch {batch_id} not found"
         )
-    
+
     # Get predictions
     predictions = crud.get_batch_predictions(db, batch_id)
-    
+
     if not predictions:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"No predictions found for batch {batch_id}"
         )
-    
+
     # Build response with SHAP values
     predictions_data = [
         {
@@ -651,7 +692,7 @@ async def download_batch_results(
         }
         for p in predictions
     ]
-    
+
     if format == "csv":
         # Create DataFrame for CSV export
         df = pd.DataFrame([
@@ -663,10 +704,10 @@ async def download_batch_results(
             }
             for p in predictions
         ])
-        
+
         # Create CSV stream
         csv_stream = dataframe_to_csv_stream(df)
-        
+
         return StreamingResponse(
             csv_stream,
             media_type="text/csv",
@@ -674,7 +715,7 @@ async def download_batch_results(
                 "Content-Disposition": f"attachment; filename=batch_{batch_id}_predictions.csv"
             }
         )
-    
+
     # Default: return JSON with SHAP values
     return {
         "success": True,
@@ -686,16 +727,16 @@ async def download_batch_results(
 
 @router.get("/statistics")
 async def get_batch_statistics(db: Session = Depends(get_db)):
-    """
-    Get overall batch prediction statistics.
+    """Get overall batch prediction statistics.
 
     Returns:
         Summary statistics for all batches
+
     """
     stats = crud.get_batch_statistics(db)
     avg_time = crud.get_average_processing_time(db)
     daily_counts = crud.get_daily_prediction_counts(db, days=30)
-    
+
     return {
         "success": True,
         "statistics": {

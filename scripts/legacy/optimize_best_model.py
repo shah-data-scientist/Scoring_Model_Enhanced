@@ -1,5 +1,4 @@
-"""
-Hyperparameter Optimization for Best Model Configuration
+"""Hyperparameter Optimization for Best Model Configuration
 
 Based on feature engineering experiments:
 - Best configuration: baseline features + balanced class weights
@@ -12,19 +11,24 @@ This script:
 4. Identifies best hyperparameters
 """
 import sys
-from pathlib import Path
-import pandas as pd
-import numpy as np
-from sklearn.model_selection import RandomizedSearchCV, StratifiedKFold
-from sklearn.metrics import (
-    roc_auc_score, average_precision_score,
-    precision_score, recall_score, f1_score, make_scorer
-)
-from lightgbm import LGBMClassifier
-import mlflow
-import mlflow.sklearn
 import time
 from datetime import datetime
+from pathlib import Path
+
+import mlflow
+import mlflow.sklearn
+import numpy as np
+import pandas as pd
+from lightgbm import LGBMClassifier
+from sklearn.metrics import (
+    average_precision_score,
+    f1_score,
+    make_scorer,
+    precision_score,
+    recall_score,
+    roc_auc_score,
+)
+from sklearn.model_selection import RandomizedSearchCV, StratifiedKFold
 
 # Add parent directory to path
 sys.path.append(str(Path(__file__).parent.parent))
@@ -79,7 +83,7 @@ def main():
     print("HYPERPARAMETER OPTIMIZATION - BEST MODEL CONFIGURATION")
     print("="*80)
     print(f"\nTimestamp: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    print(f"Configuration: baseline features + balanced class weights")
+    print("Configuration: baseline features + balanced class weights")
     print(f"Search iterations: {N_ITER}")
     print(f"Cross-validation folds: {CV_FOLDS}")
     print(f"MLflow tracking URI: {MLFLOW_TRACKING_URI}")
@@ -216,7 +220,7 @@ def main():
         roc_gap = train_metrics['roc_auc'] - val_metrics['roc_auc']
         mlflow.log_metric("roc_auc_gap", roc_gap)
 
-        print(f"\nROC-AUC:")
+        print("\nROC-AUC:")
         print(f"  Training:   {train_metrics['roc_auc']:.4f}")
         print(f"  Validation: {val_metrics['roc_auc']:.4f}")
         print(f"  Gap:        {roc_gap:.4f}")
@@ -224,7 +228,7 @@ def main():
         if roc_gap > 0.05:
             status = "OVERFITTING DETECTED"
             print(f"\n  Status: {status}")
-            print(f"  Recommendation: Add more regularization or reduce model complexity")
+            print("  Recommendation: Add more regularization or reduce model complexity")
             mlflow.set_tag("overfitting_status", "overfitting")
         elif roc_gap < 0.02:
             status = "GOOD FIT"
@@ -233,7 +237,7 @@ def main():
         else:
             status = "MINOR OVERFITTING"
             print(f"\n  Status: {status}")
-            print(f"  Acceptable level of overfitting")
+            print("  Acceptable level of overfitting")
             mlflow.set_tag("overfitting_status", "minor_overfitting")
 
         # Log model

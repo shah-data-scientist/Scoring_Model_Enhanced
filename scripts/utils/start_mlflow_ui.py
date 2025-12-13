@@ -1,5 +1,4 @@
-"""
-Start MLflow UI with correct backend URI.
+"""Start MLflow UI with correct backend URI.
 
 This script starts the MLflow UI pointing to the root mlruns database.
 """
@@ -13,7 +12,7 @@ print("=" * 80)
 print("STARTING MLFLOW UI")
 print("=" * 80)
 print(f"\nBackend URI: sqlite:///{MLFLOW_DB}")
-print(f"UI URL: http://localhost:5000")
+print("UI URL: http://localhost:5000")
 print("\nPress Ctrl+C to stop the server")
 print("=" * 80)
 
@@ -25,4 +24,4 @@ cmd = [
     '--port', '5000'
 ]
 
-subprocess.run(cmd)
+subprocess.run(cmd, check=False)
