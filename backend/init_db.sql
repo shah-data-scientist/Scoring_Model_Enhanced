@@ -129,7 +129,7 @@ VALUES (
     'System Administrator',
     TRUE,
     TRUE,
-    'admin'
+    'ADMIN'
 )
 ON CONFLICT (username) DO NOTHING;
 
@@ -142,7 +142,7 @@ VALUES (
     'Default Viewer',
     TRUE,
     FALSE,
-    'viewer'
+    'ANALYST'
 )
 ON CONFLICT (username) DO NOTHING;
 

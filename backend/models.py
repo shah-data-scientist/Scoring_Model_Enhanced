@@ -37,8 +37,8 @@ Base = declarative_base()
 class UserRole(str, enum.Enum):
     """User roles for access control."""
 
-    ANALYST = "analyst"
-    ADMIN = "admin"
+    ANALYST = "ANALYST"
+    ADMIN = "ADMIN"
 
 
 class RiskLevel(str, enum.Enum):
