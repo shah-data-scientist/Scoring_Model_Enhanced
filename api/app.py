@@ -17,10 +17,13 @@ import numpy as np
 import pandas as pd
 from fastapi import FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi import Request
+import time
 from pydantic import BaseModel, Field, validator
 
 # Import routers
 from api.batch_predictions import router as batch_router
+from api.drift_api import router as drift_router
 from api.metrics import router as metrics_router, precompute_all_metrics
 from api.file_validation import validate_input_data  # Imported validate_input_data
 from api.mlflow_loader import load_model_from_mlflow, get_mlflow_run_info
@@ -54,8 +57,40 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Simple request size limit and rate limiting (in-memory, best-effort)
+MAX_REQUEST_BODY = 10 * 1024 * 1024  # 10 MB
+RATE_LIMIT_WINDOW_SEC = 60
+RATE_LIMIT_MAX_REQUESTS = 120
+_rate_limit_store: dict[str, list[float]] = {}
+
+@app.middleware("http")
+async def request_limits_middleware(request: Request, call_next):
+    # Request body size guard (applies to uploads)
+    try:
+        # Note: Starlette doesn't expose content length reliably; fallback to streaming guard if needed
+        content_length = request.headers.get("content-length")
+        if content_length and int(content_length) > MAX_REQUEST_BODY:
+            return FastAPI().response_class(status_code=413, content="Payload Too Large")
+    except Exception:
+        pass
+
+    # Very simple IP-based rate limiting
+    client_ip = request.client.host if request.client else "unknown"
+    now = time.time()
+    window_start = now - RATE_LIMIT_WINDOW_SEC
+    timestamps = _rate_limit_store.get(client_ip, [])
+    timestamps = [t for t in timestamps if t >= window_start]
+    if len(timestamps) >= RATE_LIMIT_MAX_REQUESTS:
+        return FastAPI().response_class(status_code=429, content="Too Many Requests")
+    timestamps.append(now)
+    _rate_limit_store[client_ip] = timestamps
+
+    response = await call_next(request)
+    return response
+
 # Include routers
 app.include_router(batch_router)
+app.include_router(drift_router)
 app.include_router(metrics_router)
 
 # Global variables for model
