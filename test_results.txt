@@ -1,0 +1,66 @@
+...........ss...s....................................................... [ 40%]
+.................................ss.ss.................................. [ 80%]
+....................................
+ERROR: Coverage failure: total of 28 is less than fail-under=80
+                                                                         [100%]
+============================== warnings summary ===============================
+tests/test_api.py::TestErrorHandling::test_malformed_json
+tests/test_api_endpoints.py::TestErrorResponses::test_422_on_invalid_json
+  C:\Users\shahu\Documents\OneDrive\OPEN CLASSROOMS\PROJET 8\Scoring_Model_Enhanced\.venv\Lib\site-packages\httpx\_models.py:408: DeprecationWarning: Use 'content=<...>' to upload raw bytes/text content.
+    headers, stream = encode_request(
+
+tests/test_crud.py::TestBatchCRUD::test_create_batch
+tests/test_crud.py::TestBatchCRUD::test_complete_batch
+  C:\Users\shahu\Documents\OneDrive\OPEN CLASSROOMS\PROJET 8\Scoring_Model_Enhanced\.venv\Lib\site-packages\sqlalchemy\sql\schema.py:3624: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    return util.wrap_callable(lambda ctx: fn(), fn)  # type: ignore
+
+tests/test_crud.py::TestBatchCRUD::test_complete_batch
+  C:\Users\shahu\Documents\OneDrive\OPEN CLASSROOMS\PROJET 8\Scoring_Model_Enhanced\backend\crud.py:69: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    batch.completed_at = datetime.utcnow()
+
+tests/test_validation.py::TestDataFrameSchemaValidation::test_validate_schema_with_optional
+  C:\Users\shahu\Documents\OneDrive\OPEN CLASSROOMS\PROJET 8\Scoring_Model_Enhanced\src\validation.py:84: UserWarning: DataFrame is missing optional columns: ['col2', 'col3']
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=============================== tests coverage ================================
+_______________ coverage: platform win32, python 3.13.9-final-0 _______________
+
+Name                            Stmts   Miss  Cover
+---------------------------------------------------
+api\__init__.py                     0      0   100%
+api\app.py                        211     99    53%
+api\batch_predictions.py          177    114    36%
+api\drift_api.py                  139     87    37%
+api\drift_detection.py            118     58    51%
+api\file_validation.py             99     76    23%
+api\metrics.py                    144    102    29%
+api\mlflow_loader.py               99     90     9%
+api\preprocessing_pipeline.py     293    242    17%
+api\utils\__init__.py               0      0   100%
+api\utils\logging.py               37     14    62%
+backend\__init__.py                 0      0   100%
+backend\auth.py                    88     57    35%
+backend\crud.py                   129     85    34%
+backend\database.py                55     14    75%
+backend\init_db.py                 78     78     0%
+backend\models.py                 140      7    95%
+src\__init__.py                     3      0   100%
+src\advanced_features.py          202    202     0%
+src\config.py                      42      0   100%
+src\data_preprocessing.py         205    205     0%
+src\domain_features.py             45     11    76%
+src\evaluation.py                 135    135     0%
+src\feature_aggregation.py        144    136     6%
+src\feature_engineering.py         41     28    32%
+src\feature_selection.py           21     21     0%
+src\mlflow_utils.py               144    144     0%
+src\model_training.py              55     55     0%
+src\polynomial_features.py         64     64     0%
+src\sampling_strategies.py        110    110     0%
+src\validation.py                 132     49    63%
+---------------------------------------------------
+TOTAL                            3150   2283    28%
+Coverage XML written to file coverage.xml
+FAIL Required test coverage of 80% not reached. Total coverage: 27.52%
+173 passed, 7 skipped, 6 warnings in 37.07s

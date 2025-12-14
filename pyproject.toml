@@ -55,8 +55,32 @@ jupyter = "^1.1.1"
 nbformat = "^5.10.4"
 
 [tool.pytest.ini_options]
-addopts = "--cov=api.app --cov=api.batch_predictions --cov=api.drift_api --cov=backend.auth --cov=backend.database --cov=backend.models --cov-report=term --cov-report=xml --cov-fail-under=50"
+addopts = "--cov=api.app --cov=api.batch_predictions --cov=api.drift_api --cov=backend.auth --cov=backend.database --cov=backend.models --cov-report=term --cov-report=xml --cov-fail-under=71"
 testpaths = ["tests"]
+filterwarnings = [
+    "ignore:.*deprecated.*:DeprecationWarning",
+]
+
+[tool.coverage.run]
+omit = [
+    "scripts/*",
+    "docs/*",
+    "*/__pycache__/*",
+    "*/site-packages/*",
+    "htmlcov/*",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+    "class .*\\(Protocol\\):",
+    "@abstractmethod",
+]
 
 [tool.ruff]
 line-length = 88
