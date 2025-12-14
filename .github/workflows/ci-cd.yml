@@ -41,6 +41,15 @@ jobs:
         mkdir -p data/processed data/raw logs models
         echo "Test data directories created"
 
+    - name: Configure MLflow paths for CI
+      run: |
+        echo "Configuring MLflow tracking to workspace"
+        export MLFLOW_TRACKING_URI="${GITHUB_WORKSPACE}/mlruns"
+        export MLFLOW_ARTIFACT_URI="${GITHUB_WORKSPACE}/mlruns/artifacts"
+        mkdir -p "$MLFLOW_TRACKING_URI" "$MLFLOW_ARTIFACT_URI"
+        echo "MLFLOW_TRACKING_URI=$MLFLOW_TRACKING_URI" >> $GITHUB_ENV
+        echo "MLFLOW_ARTIFACT_URI=$MLFLOW_ARTIFACT_URI" >> $GITHUB_ENV
+
     - name: Run unit tests with coverage
       run: poetry run pytest tests/ -v --tb=short --cov=api.app --cov=api.batch_predictions --cov=api.drift_api --cov=backend.auth --cov=backend.database --cov=backend.models --cov-report=term --cov-report=xml --cov-fail-under=75
       continue-on-error: false
