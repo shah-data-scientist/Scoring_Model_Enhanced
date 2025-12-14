@@ -70,7 +70,8 @@ async def request_limits_middleware(request: Request, call_next):
         # Note: Starlette doesn't expose content length reliably; fallback to streaming guard if needed
         content_length = request.headers.get("content-length")
         if content_length and int(content_length) > MAX_REQUEST_BODY:
-            return FastAPI().response_class(status_code=413, content="Payload Too Large")
+            from starlette.responses import Response
+            return Response(status_code=413, content="Payload Too Large")
     except Exception:
         pass
 
@@ -81,7 +82,8 @@ async def request_limits_middleware(request: Request, call_next):
     timestamps = _rate_limit_store.get(client_ip, [])
     timestamps = [t for t in timestamps if t >= window_start]
     if len(timestamps) >= RATE_LIMIT_MAX_REQUESTS:
-        return FastAPI().response_class(status_code=429, content="Too Many Requests")
+        from starlette.responses import Response
+        return Response(status_code=429, content="Too Many Requests")
     timestamps.append(now)
     _rate_limit_store[client_ip] = timestamps
 
