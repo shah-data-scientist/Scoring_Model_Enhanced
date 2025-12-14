@@ -42,7 +42,7 @@ jobs:
         echo "Test data directories created"
 
     - name: Run unit tests with coverage
-      run: poetry run pytest tests/ -v --tb=short --cov=api.app --cov=api.batch_predictions --cov=api.drift_api --cov=backend.auth --cov=backend.database --cov=backend.models --cov-report=term --cov-report=xml --cov-fail-under=50
+      run: poetry run pytest tests/ -v --tb=short --cov=api.app --cov=api.batch_predictions --cov=api.drift_api --cov=backend.auth --cov=backend.database --cov=backend.models --cov-report=term --cov-report=xml --cov-fail-under=75
       continue-on-error: false
 
     - name: Lint (ruff)
