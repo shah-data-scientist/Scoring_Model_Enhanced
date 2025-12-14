@@ -55,7 +55,7 @@ jupyter = "^1.1.1"
 nbformat = "^5.10.4"
 
 [tool.pytest.ini_options]
-addopts = "--cov=api.app --cov=api.batch_predictions --cov=api.drift_api --cov=backend.auth --cov=backend.database --cov=backend.models --cov-report=term --cov-report=xml --cov-fail-under=71"
+addopts = "--cov=api.app --cov=api.batch_predictions --cov=api.drift_api --cov=backend.auth --cov=backend.database --cov=backend.models --cov-report=term --cov-report=xml --cov-fail-under=85"
 testpaths = ["tests"]
 filterwarnings = [
     "ignore:.*deprecated.*:DeprecationWarning",
