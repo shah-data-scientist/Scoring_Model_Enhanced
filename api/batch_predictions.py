@@ -18,10 +18,13 @@ import numpy as np
 import pandas as pd
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from fastapi.responses import StreamingResponse
+import api.app as main_app
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from api.file_validation import get_file_summaries, validate_all_files
+from api.json_utils import dataframe_to_json_safe, sanitize_for_json
+from api.model_validator import ModelValidator
 from api.preprocessing_pipeline import PreprocessingPipeline
 from api.utils.logging import setup_production_logger, log_batch_prediction, log_error
 from backend import crud
@@ -224,8 +227,7 @@ async def predict_batch(
     credit_card_balance: UploadFile = File(..., description="credit_card_balance.csv"),
     installments_payments: UploadFile = File(..., description="installments_payments.csv"),
     pos_cash_balance: UploadFile = File(..., description="POS_CASH_balance.csv"),
-    db: Session = Depends(get_db),
-    model = None  # Will be injected from main app
+    db: Session = Depends(get_db)
 ):
     """Batch credit scoring predictions from raw CSV files.
 
@@ -247,6 +249,11 @@ async def predict_batch(
     """
     batch = None
     start_time = time.time()
+    
+    # Get model from main app and validate
+    model = main_app.model
+    ModelValidator.check_model_loaded(model, "Batch prediction")
+    ModelValidator.validate_model_attributes(model, ['predict_proba'])
     
     logger.info(f"Received batch prediction request")
     logger.info(f"Files received: application={application.filename}, bureau={bureau.filename}, "
@@ -311,15 +318,6 @@ async def predict_batch(
                 detail=f"Preprocessing error: {str(e)}"
             )
 
-        # Step 5.5: Ensure model is available (after validation/preprocessing)
-        if model is None:
-            # Treat missing model as prediction failure to align with CI tests
-            crud.fail_batch(db, batch.id, "Prediction failed: Model error")
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Prediction failed: Model error"
-            )
-
         # Step 6: Make predictions
         try:
             predictions = model.predict(X)
@@ -380,7 +378,9 @@ async def predict_batch(
 
             predictions_data.append(pred_data)
 
-        crud.create_predictions_bulk(db, batch.id, predictions_data)
+        # Sanitize predictions data for JSON storage
+        predictions_data_safe = [sanitize_for_json(pred) for pred in predictions_data]
+        crud.create_predictions_bulk(db, batch.id, predictions_data_safe)
 
         # Step 9: Calculate risk counts and complete batch
         risk_counts = {

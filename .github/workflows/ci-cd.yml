@@ -50,8 +50,12 @@ jobs:
         echo "MLFLOW_TRACKING_URI=$MLFLOW_TRACKING_URI" >> $GITHUB_ENV
         echo "MLFLOW_ARTIFACT_URI=$MLFLOW_ARTIFACT_URI" >> $GITHUB_ENV
 
-    - name: Run unit tests with coverage
+    - name: Run core tests with coverage
       run: poetry run pytest tests/ -v --tb=short --cov=api.app --cov=api.batch_predictions --cov=api.drift_api --cov=backend.auth --cov=backend.database --cov=backend.models --cov-report=term --cov-report=xml --cov-fail-under=75
+      continue-on-error: false
+
+    - name: Run utility tests (JSON & Model Validation)
+      run: poetry run pytest tests/test_json_utils.py tests/test_model_validator.py -v --tb=short
       continue-on-error: false
 
     - name: Lint (ruff)

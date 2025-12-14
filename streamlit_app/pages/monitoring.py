@@ -10,13 +10,15 @@ This page is admin-only and provides:
 import sys
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 import plotly.express as px
 import requests
 import streamlit as st
 
-PROJECT_ROOT = Path(__file__).parent.parent.parent
-sys.path.insert(0, str(PROJECT_ROOT))
+# Import JSON utils from local streamlit_app directory
+sys.path.insert(0, str(Path(__file__).parent.parent))
+from json_utils import sanitize_for_json
 
 from streamlit_app.config import API_BASE_URL
 
@@ -449,15 +451,15 @@ def check_data_quality(batch_id: int):
             data_list = [raw_app.raw_data for raw_app in batch.raw_applications if raw_app.raw_data]
             df = pd.DataFrame(data_list)
 
-            # Call API for quality check
+            # Call API for quality check with sanitized data
             response = requests.post(
                 f"{API_BASE_URL}/monitoring/quality",
-                json={
+                json=sanitize_for_json({
                     "dataframe_dict": df.to_dict(orient='list'),
                     "check_missing": True,
                     "check_range": True,
                     "check_schema": False
-                },
+                }),
                 timeout=10
             )
 
@@ -465,21 +467,55 @@ def check_data_quality(batch_id: int):
                 quality_result = response.json()
 
                 # Status card
-                status_color = "green" if quality_result['valid'] else "red"
+                status_color = "green" if quality_result['valid'] else "orange"
+                status_icon = "✅" if quality_result['valid'] else "⚠️"
                 st.markdown(
-                    f"<h3 style='color: {status_color}'>Status: {quality_result['summary']}</h3>",
+                    f"<h3 style='color: {status_color}'>{status_icon} {quality_result['summary']}</h3>",
                     unsafe_allow_html=True
                 )
 
                 # Missing values
                 if quality_result['missing_values']:
-                    st.subheader("Missing Values")
+                    st.subheader("📊 Missing Values Analysis")
+                    
                     missing_df = pd.DataFrame(
                         list(quality_result['missing_values'].items()),
                         columns=['Feature', 'Missing %']
                     )
-                    missing_df = missing_df.sort_values('Missing %', ascending=False).head(10)
-                    st.dataframe(missing_df, use_container_width=True)
+                    missing_df = missing_df.sort_values('Missing %', ascending=False)
+                    
+                    # Show summary stats
+                    high_missing = missing_df[missing_df['Missing %'] > 20]
+                    col1, col2, col3 = st.columns(3)
+                    with col1:
+                        st.metric("Total Features", len(missing_df))
+                    with col2:
+                        st.metric("High Missing (>20%)", len(high_missing), 
+                                delta=f"{len(high_missing)/len(missing_df)*100:.1f}%" if len(missing_df) > 0 else "0%",
+                                delta_color="inverse")
+                    with col3:
+                        st.metric("Average Missing", f"{missing_df['Missing %'].mean():.1f}%")
+                    
+                    # Show top 15 features with missing values
+                    st.markdown("**Top 15 Features by Missing Values:**")
+                    top_missing = missing_df.head(15).copy()
+                    top_missing['Status'] = top_missing['Missing %'].apply(
+                        lambda x: '🔴 Critical' if x > 50 else ('🟠 High' if x > 20 else '🟢 Acceptable')
+                    )
+                    st.dataframe(
+                        top_missing[['Feature', 'Missing %', 'Status']], 
+                        use_container_width=True,
+                        hide_index=True
+                    )
+                    
+                    # Show features with >20% missing in expander
+                    if len(high_missing) > 0:
+                        with st.expander(f"📋 View all {len(high_missing)} features with >20% missing"):
+                            st.dataframe(
+                                high_missing[['Feature', 'Missing %']], 
+                                use_container_width=True,
+                                hide_index=True
+                            )
 
                 # Out of range
                 if quality_result['out_of_range']:

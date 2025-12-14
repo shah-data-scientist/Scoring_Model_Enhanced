@@ -226,7 +226,7 @@ async def check_data_quality(request: DataQualityCheckRequest):
             results['missing_values'] = missing
             high_missing = {k: v for k, v in missing.items() if v > 20}
             if high_missing:
-                issues.append(f"High missing values: {list(high_missing.keys())}")
+                issues.append(f"{len(high_missing)} features with high missing values (>20%)")
                 results['valid'] = False
         
         # Check out-of-range values
