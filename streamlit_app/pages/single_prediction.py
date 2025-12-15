@@ -14,6 +14,8 @@ import pandas as pd
 import requests
 import streamlit as st
 
+from streamlit_app.shap_waterfall import plot_shap_waterfall
+
 PROJECT_ROOT = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
@@ -189,6 +191,49 @@ def render_single_prediction():
                             ])
 
                             st.bar_chart(shap_df.set_index('Feature'))
+
+                            # Build feature values and metadata for waterfall plot
+                            # For raw features: use input_values
+                            # For derived/engineered features: mark as calculated (C) or NA
+                            feature_values = {}
+                            feature_metadata = {}
+                            
+                            # Check if API provides feature_values_used
+                            api_feature_values = result.get('feature_values_used', {})
+                            
+                            for feature_name in shap_values.keys():
+                                # Try to get value from API response first
+                                if feature_name in api_feature_values:
+                                    feature_values[feature_name] = api_feature_values[feature_name]
+                                    feature_metadata[feature_name] = {
+                                        "type": "D",  # Derived/processed
+                                        "missing": pd.isna(api_feature_values[feature_name])
+                                    }
+                                # Check if it's a raw input feature
+                                elif feature_name in input_values:
+                                    feature_values[feature_name] = input_values[feature_name]
+                                    feature_metadata[feature_name] = {
+                                        "type": "R",  # Raw
+                                        "missing": pd.isna(input_values[feature_name])
+                                    }
+                                # Otherwise it's a calculated/engineered feature
+                                else:
+                                    feature_values[feature_name] = None
+                                    feature_metadata[feature_name] = {
+                                        "type": "C",  # Calculated
+                                        "missing": True
+                                    }
+
+                            try:
+                                fig = plot_shap_waterfall(
+                                    shap_values=shap_values,
+                                    feature_values=feature_values,
+                                    feature_metadata=feature_metadata,
+                                    max_display=15,
+                                )
+                                st.pyplot(fig, use_container_width=True)
+                            except Exception as e:
+                                st.info(f"Could not render SHAP waterfall: {e}")
 
                 else:
                     error_detail = response.json().get('detail', 'Unknown error')

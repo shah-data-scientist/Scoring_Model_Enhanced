@@ -793,6 +793,7 @@ def generate_detailed_html_report(predictions: list, batch_name: str) -> str:
         probability = pred.get('probability', 0)
         risk_level = pred.get('risk_level', 'UNKNOWN')
         shap_values = pred.get('shap_values', {})
+        top_features = pred.get('top_features', [])
 
         # Risk badge class
         risk_class = f"risk-{risk_level.lower() if risk_level else 'unknown'}"
@@ -828,7 +829,7 @@ def generate_detailed_html_report(predictions: list, batch_name: str) -> str:
 
         # Generate waterfall plot for SHAP values
         if shap_values:
-            html += generate_waterfall_html(shap_values)
+            html += generate_waterfall_html(shap_values, top_features)
         else:
             html += """
                 <div class="waterfall-container">
@@ -849,25 +850,72 @@ def generate_detailed_html_report(predictions: list, batch_name: str) -> str:
     return html
 
 
-def generate_waterfall_html(shap_values: dict) -> str:
-    """Generate HTML waterfall chart for SHAP values."""
-    # Sort by absolute value and get top 10
-    sorted_features = sorted(shap_values.items(), key=lambda x: abs(x[1]), reverse=True)[:10]
+def _format_feature_label(feature: str, feature_type: str, missing: bool) -> str:
+    """Format feature label with type and missing indicator."""
+    prefix = "[M] " if missing else ""
+    return f"{prefix}{feature} ({feature_type})"
 
-    # Calculate "Others" - sum of remaining features
-    if len(shap_values) > 10:
-        others_sum = sum(v for k, v in shap_values.items() if k not in dict(sorted_features))
+
+def _format_value(value) -> str:
+    if value is None:
+        return "NA"
+    try:
+        if pd.isna(value):
+            return "NA"
+    except Exception:
+        pass
+
+    if isinstance(value, (int, np.integer)):
+        return f"{int(value):,}"
+    if isinstance(value, (float, np.floating)):
+        if abs(value) >= 1000:
+            return f"{value:,.0f}"
+        if abs(value) >= 1:
+            return f"{value:,.2f}"
+        return f"{value:.4f}"
+    return str(value)
+
+
+def generate_waterfall_html(shap_values: dict, top_features: list | None = None) -> str:
+    """Generate HTML waterfall chart with value column and type/missing indicators."""
+    # Build enriched feature list (prefer top_features if available)
+    enriched = []
+    if top_features:
+        for item in top_features:
+            enriched.append({
+                'feature': item.get('feature'),
+                'shap_value': item.get('shap_value', 0),
+                'value': item.get('value'),
+                'type': item.get('type', 'R'),
+                'missing': bool(item.get('missing', False))
+            })
     else:
-        others_sum = 0
+        # Fallback: use shap_values only
+        for feature, value in shap_values.items():
+            enriched.append({
+                'feature': feature,
+                'shap_value': value,
+                'value': None,
+                'type': 'R',
+                'missing': False
+            })
 
-    # Find max absolute value for scaling
-    max_abs = max(abs(v) for _, v in sorted_features) if sorted_features else 1
+    # Sort by absolute SHAP and cap at 10
+    enriched = sorted(enriched, key=lambda x: abs(x['shap_value']), reverse=True)[:10]
+
+    # Calculate others
+    others_sum = 0
+    if len(shap_values) > len(enriched):
+        top_set = {e['feature'] for e in enriched}
+        others_sum = sum(v for k, v in shap_values.items() if k not in top_set)
+
+    max_abs = max(abs(e['shap_value']) for e in enriched) if enriched else 1
     if others_sum != 0:
         max_abs = max(max_abs, abs(others_sum))
 
     html = """
         <div class="waterfall-container">
-            <div class="waterfall-title">Top 10 SHAP Feature Contributions</div>
+            <div class="waterfall-title">Top SHAP Feature Contributions</div>
             <div class="legend">
                 <div class="legend-item">
                     <div class="legend-color" style="background: #dc3545;"></div>
@@ -881,35 +929,39 @@ def generate_waterfall_html(shap_values: dict) -> str:
             <div style="margin-top: 15px;">
     """
 
-    for feature, value in sorted_features:
+    for item in enriched:
+        feature = item['feature']
+        value = item['shap_value']
+        feat_val = _format_value(item.get('value'))
+        feat_type = item.get('type', 'R')
+        missing = bool(item.get('missing', False))
+
         bar_width = abs(value) / max_abs * 50  # Max 50% width
         is_positive = value > 0
         bar_class = "waterfall-bar-positive" if is_positive else "waterfall-bar-negative"
         value_class = "positive" if is_positive else "negative"
 
-        # For positive values, bar goes right from center
-        # For negative values, bar goes left from center
         if is_positive:
             style = f"left: 50%; width: {bar_width}%;"
         else:
             style = f"right: 50%; width: {bar_width}%;"
 
-        # Format feature name for readability (replace underscores with spaces)
-        display_name = feature.replace('_', ' ')
-        if len(display_name) > 30:
-            display_name = display_name[:27] + "..."
+        # Format label with type/missing markers
+        display_label = _format_feature_label(feature.replace('_', ' '), feat_type, missing)
+        if len(display_label) > 40:
+            display_label = display_label[:37] + "..."
 
         html += f"""
             <div class="waterfall-bar">
-                <div class="waterfall-label" title="{feature}">{display_name}</div>
+                <div class="waterfall-label" title="{feature}">{display_label}</div>
                 <div class="waterfall-bar-container">
                     <div class="waterfall-bar-fill {bar_class}" style="{style}"></div>
                 </div>
                 <div class="waterfall-value {value_class}">{value:+.4f}</div>
+                <div class="waterfall-value" style="color: #333;">{feat_val}</div>
             </div>
         """
 
-    # Add "Others" bar if there are more than 10 features
     if others_sum != 0:
         bar_width = abs(others_sum) / max_abs * 50
         is_positive = others_sum > 0
@@ -928,6 +980,7 @@ def generate_waterfall_html(shap_values: dict) -> str:
                     <div class="waterfall-bar-fill {bar_class}" style="{style}"></div>
                 </div>
                 <div class="waterfall-value {value_class}">{others_sum:+.4f}</div>
+                <div class="waterfall-value" style="color: #333;">—</div>
             </div>
         """
 

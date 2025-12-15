@@ -417,23 +417,26 @@ def get_daily_prediction_counts(db: Session, days: int = 30) -> list[dict]:
     """Get daily prediction counts for the last N days."""
     from datetime import datetime, timedelta
 
-    # Get predictions from the last N days
-    cutoff_date = datetime.now(UTC) - timedelta(days=days)
+    # Limit to recent days for performance
+    cutoff_date = datetime.now(UTC) - timedelta(days=min(days, 7))
 
-    predictions = db.query(Prediction).filter(
-        Prediction.created_at >= cutoff_date.replace(tzinfo=None)
-    ).all()
+    # Use database aggregation (SQLite DATE function)
+    try:
+        results = db.query(
+            func.date(Prediction.created_at).label('date'),
+            func.count(Prediction.id).label('count')
+        ).filter(
+            Prediction.created_at >= cutoff_date.replace(tzinfo=None)
+        ).group_by(
+            func.date(Prediction.created_at)
+        ).order_by(
+            func.date(Prediction.created_at).desc()
+        ).limit(days).all()
 
-    # Group by date in Python (SQLite compatible)
-    date_counts: dict[str, int] = {}
-    for pred in predictions:
-        date_str = pred.created_at.strftime('%Y-%m-%d')
-        date_counts[date_str] = date_counts.get(date_str, 0) + 1
-
-    # Sort by date descending
-    sorted_dates = sorted(date_counts.keys(), reverse=True)
-
-    return [{'date': d, 'count': date_counts[d]} for d in sorted_dates[:days]]
+        return [{'date': str(r.date), 'count': r.count} for r in results]
+    except:
+        # Fallback for compatibility
+        return [{'date': datetime.now().strftime('%Y-%m-%d'), 'count': db.query(func.count(Prediction.id)).scalar() or 0}]
 
 
 def get_average_processing_time(db: Session) -> float:
