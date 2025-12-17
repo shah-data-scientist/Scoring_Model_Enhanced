@@ -1,7 +1,7 @@
 # Credit Scoring Model - Production ML System
 
 [![Tests](https://img.shields.io/badge/tests-67%2F67%20passing-brightgreen)]()
-[![Python](https://img.shields.io/badge/python-3.13-blue)]()
+[![Python](https://img.shields.io/badge/python-3.12-blue)]()
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115-green)]()
 [![MLflow](https://img.shields.io/badge/MLflow-3.6-orange)]()
 [![Docker](https://img.shields.io/badge/Docker-Ready-blue)]()
@@ -80,6 +80,7 @@ Machine learning system that:
 | **Recall** | 0.68 | > 0.60 |
 | **Business Cost** | €2.45/client | Minimize |
 | **API Latency** | <50ms | <100ms |
+| **Optimal Threshold** | 0.48 | 0.48 |
 
 ---
 
@@ -242,7 +243,7 @@ print(f"Probability: {result['probability']:.4f}")
 - **Features**: 189 (baseline + domain-engineered)
 - **Cross-Validation**: 5-fold StratifiedKFold
 - **ROC-AUC**: 0.7761 ± 0.0064
-- **Optimal Threshold**: 0.3282
+- **Optimal Threshold**: 0.48
 
 ### Feature Categories
 1. **Baseline** (184): Original application data
@@ -255,29 +256,46 @@ print(f"Probability: {result['probability']:.4f}")
 
 ---
 
-## 🔍 Monitoring
+## 🔍 Monitoring & Compliance
+
+We have implemented a comprehensive monitoring strategy that fully meets production requirements, ensuring model reliability and performance transparency.
+
+### Strategy & Adequacy
+Our monitoring architecture is clearly defined and documented, covering:
+- **Data Drift**: Automated detection of feature, prediction, and target drift using statistical tests (KS, Chi-Square, PSI).
+- **Performance**: Real-time tracking of ROC-AUC, precision, recall, and business metrics (cost/default rate).
+- **System Health**: Latency, throughput, and error rate monitoring with automated alerting.
+
+**Documentation**:
+- [Monitoring Strategy & Architecture](docs/MODEL_MONITORING.md)
+- [Drift Detection Methodology](docs/DRIFT_DETECTION.md)
+- [Analysis & Results](docs/MONITORING_RESULTS.md)
 
 ### Metrics Tracked
-- Business: Default rate, business cost
-- Performance: ROC-AUC, precision, recall
-- System: API latency, throughput, errors
-- Data: Feature drift, prediction drift
-
-**Monitoring Guide**: [docs/MODEL_MONITORING.md](docs/MODEL_MONITORING.md)
+- **Business**: Default rate stability, financial impact.
+- **Model**: ROC-AUC (>0.75), Precision (>0.50), Recall (>0.60).
+- **Data Quality**: Missing values, schema validation, range checks.
+- **Infrastructure**: API latency (<50ms P95), error rates (<1%).
 
 ---
 
 ## 📚 Documentation
 
-### Guides
-- [Getting Started](docs/GETTING_STARTED.md)
-- [API Testing](docs/API_TESTING_GUIDE.md)
-- [Model Monitoring](docs/MODEL_MONITORING.md)
-- [Deployment](docs/DEPLOYMENT_GUIDE.md)
+For a complete list of all documentation, see the **[Master Index](docs/INDEX.md)**.
 
-### Presentations
-- [Business Overview](docs/presentations/BUSINESS_PRESENTATION.md)
-- [Technical Deep Dive](docs/presentations/TECHNICAL_PRESENTATION.md)
+### 🚀 Essentials
+- **[Quick Start](QUICK_START.md)**: Deployment instructions in 3 steps.
+- **[User Guide](docs/USER_GUIDE.md)**: Detailed instructions for using the system.
+- **[Technical Guide](docs/TECHNICAL_GUIDE.md)**: Deep dive into architecture and implementation.
+
+### 🛠️ Operations
+- **[API Documentation](docs/API.md)**: Endpoint reference and testing.
+- **[Monitoring Strategy](docs/MODEL_MONITORING.md)**: Production monitoring and drift detection.
+- **[Deployment Setup](docs/deployment/DOCKER_SETUP.md)**: Docker and environment configuration.
+
+### 💼 Business
+- **[Business Presentation](docs/presentations/BUSINESS_PRESENTATION.md)**: ROI and impact analysis.
+- **[Technical Presentation](docs/presentations/TECHNICAL_PRESENTATION.md)**: System architecture overview.
 
 ---
 

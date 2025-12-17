@@ -33,20 +33,33 @@ METRICS_ENDPOINT = f"{API_BASE_URL}/metrics/precomputed"
 
 
 @st.cache_data(ttl=3600)
+def fetch_metrics_from_api_cached():
+    """Fetch precomputed metrics from API - FAST HTTP call only.
+    
+    This function is cached. It only handles the happy path.
+    Exceptions raised here will NOT be cached, allowing retries.
+    """
+    response = requests.get(METRICS_ENDPOINT, timeout=30)
+    response.raise_for_status()
+    data = response.json()
+    logger.info(f"Fetched metrics for {len(data['metrics'])} thresholds from API")
+    return {
+        'all_metrics': data['metrics'],
+        'metrics_df': pd.DataFrame(data['metrics_df']),
+        'optimal_threshold': data['optimal_threshold'],
+        'data_count': data['data_count'],
+        'thresholds': data['thresholds']
+    }
+
+
 def fetch_metrics_from_api():
-    """Fetch precomputed metrics from API - FAST HTTP call only."""
+    """Wrapper to handle API fetch with error handling.
+    
+    This function is NOT cached, so errors are not persisted.
+    It calls the cached function for the heavy lifting.
+    """
     try:
-        response = requests.get(METRICS_ENDPOINT, timeout=30)
-        response.raise_for_status()
-        data = response.json()
-        logger.info(f"Fetched metrics for {len(data['metrics'])} thresholds from API")
-        return {
-            'all_metrics': data['metrics'],
-            'metrics_df': pd.DataFrame(data['metrics_df']),
-            'optimal_threshold': data['optimal_threshold'],
-            'data_count': data['data_count'],
-            'thresholds': data['thresholds']
-        }
+        return fetch_metrics_from_api_cached()
     except requests.exceptions.ConnectionError:
         return {'error': 'connection', 'detail': 'Cannot connect to API server'}
     except requests.exceptions.Timeout:

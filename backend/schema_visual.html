@@ -1,0 +1,127 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Database Schema - Scoring Model</title>
+    <script type="module">
+        import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+        mermaid.initialize({ startOnLoad: true, theme: 'default' });
+    </script>
+    <style>
+        body { font-family: sans-serif; padding: 20px; background-color: #f4f4f9; }
+        .container { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        h1 { color: #333; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Database Schema</h1>
+        <p>Generated automatically from SQLAlchemy models.</p>
+        <div class="mermaid">
+erDiagram
+    users {
+        INTEGER id PK
+        STRING username
+        STRING email
+        STRING hashed_password
+        STRING role
+        BOOLEAN is_active
+        DATETIME created_at
+        DATETIME updated_at
+        DATETIME last_login
+    }
+    prediction_batches {
+        INTEGER id PK
+        INTEGER user_id FK
+        STRING batch_name
+        STRING status
+        INTEGER total_applications
+        INTEGER processed_applications
+        DATETIME created_at
+        DATETIME started_at
+        DATETIME completed_at
+        FLOAT processing_time_seconds
+        STRING error_message
+        FLOAT avg_probability
+        INTEGER risk_low_count
+        INTEGER risk_medium_count
+        INTEGER risk_high_count
+        INTEGER risk_critical_count
+    }
+    predictions {
+        INTEGER id PK
+        INTEGER batch_id FK
+        INTEGER sk_id_curr
+        INTEGER prediction
+        FLOAT probability
+        STRING risk_level
+        JSON shap_values
+        JSON top_features
+        DATETIME created_at
+    }
+    raw_applications {
+        INTEGER id PK
+        INTEGER batch_id FK
+        INTEGER sk_id_curr
+        FLOAT amt_credit
+        FLOAT amt_annuity
+        FLOAT amt_income_total
+        FLOAT amt_goods_price
+        FLOAT ext_source_1
+        FLOAT ext_source_2
+        FLOAT ext_source_3
+        INTEGER days_birth
+        INTEGER days_employed
+        STRING code_gender
+        JSON raw_data
+        DATETIME created_at
+    }
+    model_metrics {
+        INTEGER id PK
+        STRING model_name
+        STRING model_version
+        STRING metric_name
+        FLOAT metric_value
+        STRING dataset_name
+        INTEGER n_samples
+        DATETIME recorded_at
+        JSON extra_info
+    }
+    data_drift {
+        INTEGER id PK
+        STRING feature_name
+        FLOAT drift_score
+        STRING drift_type
+        BOOLEAN is_drifted
+        FLOAT reference_mean
+        FLOAT current_mean
+        FLOAT reference_std
+        FLOAT current_std
+        INTEGER batch_id FK
+        INTEGER n_samples
+        DATETIME recorded_at
+    }
+    api_request_logs {
+        INTEGER id PK
+        STRING endpoint
+        STRING method
+        INTEGER user_id FK
+        INTEGER request_size_bytes
+        INTEGER response_status
+        FLOAT response_time_ms
+        STRING error_message
+        DATETIME timestamp
+        STRING client_ip
+        STRING user_agent
+    }
+    prediction_batches }o--|| users : "user_id"
+    predictions }o--|| prediction_batches : "batch_id"
+    raw_applications }o--|| prediction_batches : "batch_id"
+    data_drift }o--|| prediction_batches : "batch_id"
+    api_request_logs }o--|| users : "user_id"
+        </div>
+    </div>
+</body>
+</html>

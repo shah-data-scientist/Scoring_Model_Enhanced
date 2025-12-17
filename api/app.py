@@ -218,55 +218,65 @@ async def load_model():
         print(f"Warning: Database initialization failed: {e}")
         print("API will continue without database persistence.")
 
+    from api.onnx_wrapper import ONNXModelWrapper # Add this import
+
     print("Loading credit scoring model...")
 
     try:
-        # Load directly from MLflow artifacts directory (bypass download)
-        import pickle
-        artifact_path = Path(__file__).parent.parent / "mlruns" / "7c" / "7ce7c8f6371e43af9ced637e5a4da7f0" / "artifacts" / "production_model.pkl"
-        
-        print(f"  Loading from: {artifact_path}")
-        
-        if artifact_path.exists():
-            with open(artifact_path, 'rb') as f:
-                model = pickle.load(f)
-            
+        # Check for ONNX model first
+        onnx_path = Path(__file__).parent.parent / "models" / "production_model.onnx"
+        if onnx_path.exists():
+            print(f"  Loading ONNX model from: {onnx_path}")
+            model = ONNXModelWrapper(str(onnx_path))
             model_metadata.update({
-                'source': 'mlflow_artifacts',
-                'run_id': '7ce7c8f6371e43af9ced637e5a4da7f0',
-                'path': str(artifact_path),
+                'source': 'onnx_runtime',
+                'path': str(onnx_path),
                 'loaded_at': datetime.now().isoformat(),
-                'type': type(model).__name__,
-                'features': model.n_features_in_ if hasattr(model, 'n_features_in_') else EXPECTED_FEATURES
+                'type': 'ONNX LGBMClassifier', # Specific to this model, adjust if model type can vary
+                'features': model.n_features_in_
             })
-            print(f"[OK] Model loaded from MLflow artifacts")
-            print(f"  Type: {model_metadata['type']}, Features: {model_metadata['features']}")
+            print(f"[OK] ONNX Model loaded")
         else:
-            # Final fallback
-            fallback_file = Path(__file__).parent.parent / "models" / "production_model.pkl"
-            print(f"  Artifact not found, trying fallback: {fallback_file}")
+            # Fallback to MLflow artifact or local pickle
+            import pickle
+            artifact_path = Path(__file__).parent.parent / "mlruns" / "7c" / "7ce7c8f6371e43af9ced637e5a4da7f0" / "artifacts" / "production_model.pkl"
             
-            if not fallback_file.exists():
-                raise FileNotFoundError(f"Model file not found: {fallback_file}")
+            print(f"  Loading from: {artifact_path}")
             
-            with open(fallback_file, 'rb') as f:
-                model = pickle.load(f)
-            
-            model_metadata.update({
-                'source': 'file',
-                'path': str(fallback_file),
-                'loaded_at': datetime.now().isoformat(),
-                'type': type(model).__name__,
-                'features': model.n_features_in_ if hasattr(model, 'n_features_in_') else EXPECTED_FEATURES
-            })
-            print(f"[OK] Model loaded from fallback file")
-            print(f"  Type: {model_metadata['type']}, Features: {model_metadata['features']}")
-
-    except Exception as e:
-        print(f"ERROR: Failed to load model: {e}")
-        print("API will start but predictions will fail until model is loaded.")
-        model = None
-        model_metadata = {'error': str(e)}
+            if artifact_path.exists():
+                with open(artifact_path, 'rb') as f:
+                    model = pickle.load(f)
+                
+                model_metadata.update({
+                    'source': 'mlflow_artifacts',
+                    'run_id': '7ce7c8f6371e43af9ced637e5a4da7f0',
+                    'path': str(artifact_path),
+                    'loaded_at': datetime.now().isoformat(),
+                    'type': type(model).__name__,
+                    'features': model.n_features_in_ if hasattr(model, 'n_features_in_') else EXPECTED_FEATURES
+                })
+                print(f"[OK] Model loaded from MLflow artifacts")
+                print(f"  Type: {model_metadata['type']}, Features: {model_metadata['features']}")
+            else:
+                # Final fallback
+                fallback_file = Path(__file__).parent.parent / "models" / "production_model.pkl"
+                print(f"  Artifact not found, trying fallback: {fallback_file}")
+                
+                if not fallback_file.exists():
+                    raise FileNotFoundError(f"Model file not found: {fallback_file}")
+                
+                with open(fallback_file, 'rb') as f:
+                    model = pickle.load(f)
+                
+                model_metadata.update({
+                    'source': 'file',
+                    'path': str(fallback_file),
+                    'loaded_at': datetime.now().isoformat(),
+                    'type': type(model).__name__,
+                    'features': model.n_features_in_ if hasattr(model, 'n_features_in_') else EXPECTED_FEATURES
+                })
+                print(f"[OK] Model loaded from fallback file")
+                print(f"  Type: {model_metadata['type']}, Features: {model_metadata['features']}")
 
     # Initialize preprocessing pipeline (loads precomputed features)
     print("\nInitializing preprocessing pipeline...")

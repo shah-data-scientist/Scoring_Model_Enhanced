@@ -127,18 +127,18 @@ Key documents:
 - [Technical Guide](TECHNICAL_GUIDE.md)
 - [Database Schema](DATABASE_SCHEMA.md)
 - [Monitoring Guide](MODEL_MONITORING.md)
-- [Deployment Guide](../DEPLOYMENT_GUIDE.md)
+- [Deployment Guide](deployment/DOCKER_SETUP.md)
 
 ### 🔬 Data Scientists
 **Start here**: [MLflow UI](http://localhost:5000)
 
 Key documents:
-- [Feature Engineering Guide](FEATURE_ENGINEERING_EXPERIMENT_DESIGN.md)
-- [MLflow Organization](MLFLOW_RUNS_ORGANIZATION.md)
-- [Project Summary](PROJECT_SUMMARY.md)
+- [Feature Engineering (Archived)](archive/FEATURE_ENGINEERING_EXPERIMENT_DESIGN.md)
+- [MLflow Organization (Archived)](archive/MLFLOW_RUNS_ORGANIZATION.md)
+- [Project Summary](../PROJECT_SUMMARY.md)
 
 ### 🧪 QA Engineers
-**Start here**: [API Testing Guide](API_TESTING_GUIDE.md)
+**Start here**: [API Testing Guide](API.md)
 
 Key documents:
 - Test procedures
@@ -146,7 +146,7 @@ Key documents:
 - Edge cases
 
 ### 🚢 DevOps Engineers
-**Start here**: [Deployment Guide](DEPLOYMENT_GUIDE.md)
+**Start here**: [Deployment Guide](deployment/DOCKER_SETUP.md)
 
 Key documents:
 - Infrastructure requirements

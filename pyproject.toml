@@ -35,6 +35,11 @@ dependencies = [
     "optuna (>=4.6.0,<5.0.0)",
     "pyyaml (>=6.0.3,<7.0.0)",
     "python-multipart ==0.0.20", # Added for FastAPI form data processing
+    "sqlalchemy-schemadisplay (>=2.0,<3.0)",
+    "pydot (>=4.0.1,<5.0.0)",
+    "onnx (>=1.15.0,<2.0.0)",
+    "onnxruntime (>=1.17.0,<2.0.0)",
+    "onnxmltools (>=1.11.0,<2.0.0)",
 ]
 
 [tool.poetry]

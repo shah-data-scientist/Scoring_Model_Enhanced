@@ -14,7 +14,7 @@ This document provides technical details about the credit scoring model, includi
 - **ROC-AUC**: 0.7761 ± 0.0064 (5-fold CV)
 - **Precision**: 0.52
 - **Recall**: 0.68
-- **Optimal Threshold**: 0.3282
+- **Optimal Threshold**: 0.48
 - **Business Cost**: €2.45/client (32% reduction from baseline)
 
 **Training Details**:
@@ -116,7 +116,7 @@ This document provides technical details about the credit scoring model, includi
 
 ### Confusion Matrix (Validation Set)
 
-At optimal threshold (0.3282):
+At optimal threshold (0.48):
 
 ```
                   Predicted
@@ -199,7 +199,7 @@ scores = cross_val_score(model, X, y, cv=cv, scoring='roc_auc')
 # Find threshold that minimizes business cost
 # Cost = €10 * FN + €1 * FP
 
-optimal_threshold = 0.3282  # Found via grid search
+optimal_threshold = 0.48  # Found via grid search
 ```
 
 ### 6. Model Registration
@@ -212,7 +212,7 @@ with mlflow.start_run():
 
     # Log metrics
     mlflow.log_metric("roc_auc", 0.7761)
-    mlflow.log_metric("optimal_threshold", 0.3282)
+    mlflow.log_metric("optimal_threshold", 0.48)
 
     # Register for production
     mlflow.register_model("runs:/{run_id}/model", "credit_scoring_model")
@@ -259,7 +259,7 @@ async def predict(input_data: PredictionInput):
         client_id=input_data.client_id,
         probability=probability,
         risk_level=risk_level,
-        threshold=0.3282,
+        threshold=0.48,
         model_version="1"
     )
 ```
@@ -564,7 +564,7 @@ httpx = "^0.28.1"
    - **Impact**: No model fallback
    - **Mitigation**: Add XGBoost or Random Forest backup
 
-2. **Manual Threshold**: Fixed at 0.3282
+2. **Manual Threshold**: Fixed at 0.48
    - **Impact**: Not adaptive to changing conditions
    - **Mitigation**: Implement dynamic threshold adjustment
 

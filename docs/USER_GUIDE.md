@@ -83,7 +83,7 @@ poetry run pytest tests/ -v
 3. Watch metrics update in real-time
 4. Find optimal balance for your business needs
 
-**Recommended Threshold**: 0.3282 (pre-calculated optimal)
+**Recommended Threshold**: 0.48 (pre-calculated optimal)
 
 ### API Server (http://localhost:8000)
 
@@ -187,7 +187,7 @@ poetry run python scripts/experiments/test_api_predict.py
 **Fields**:
 - `probability`: Predicted default probability (0.0 to 1.0)
 - `risk_level`: Risk category (LOW/MEDIUM/HIGH/CRITICAL)
-- `threshold`: Decision threshold used (default: 0.3282)
+- `threshold`: Decision threshold used (default: 0.48)
 - `model_version`: Model version from registry
 - `timestamp`: Prediction time (ISO format)
 
