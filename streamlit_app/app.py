@@ -99,15 +99,11 @@ def render_header():
 def main():
     """Main application entry point."""
     # Check authentication - show ONLY login page if not authenticated
-    # if not is_authenticated():
-    #     logger.info("User not authenticated - showing login page")
-    #     login_page()
-    #     # Return here to let Streamlit finish rendering the login page
-    #     return
-    
-    # Bypass auth for development
-    st.session_state.user_role = UserRole.ADMIN.value
-    st.session_state.username = "DevUser"
+    if not is_authenticated():
+        logger.info("User not authenticated - showing login page")
+        login_page()
+        # Return here to let Streamlit finish rendering the login page
+        return
     
     # User is authenticated - ensure login page is NOT showing
     if st.session_state.get('showing_login', False):
