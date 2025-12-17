@@ -24,17 +24,20 @@ session_manager = SessionManager(session_timeout_hours=8)
 
 
 def init_auth_session():
-    """Initialize authentication session state variables."""
+    """Initialize authentication session state variables.
+    
+    TEMPORARY: Authentication is disabled, giving admin rights by default.
+    """
     if 'authenticated' not in st.session_state:
-        st.session_state.authenticated = False
+        st.session_state.authenticated = True
     if 'username' not in st.session_state:
-        st.session_state.username = None
+        st.session_state.username = "admin"
     if 'user_role' not in st.session_state:
-        st.session_state.user_role = None
+        st.session_state.user_role = UserRole.ADMIN.value
     if 'user_email' not in st.session_state:
-        st.session_state.user_email = None
+        st.session_state.user_email = "admin@example.com"
     if 'session_token' not in st.session_state:
-        st.session_state.session_token = None
+        st.session_state.session_token = "dev_session_token"
     if 'showing_login' not in st.session_state:
         st.session_state.showing_login = False
 

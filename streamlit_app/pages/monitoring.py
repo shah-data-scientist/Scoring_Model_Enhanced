@@ -125,12 +125,12 @@ def render_overview_tab():
                 )
                 col3.metric(
                     "Total Predictions",
-                    f"{stats_data.get('total_predictions', 0):,}",
+                    f"{(stats_data.get('total_predictions') or 0):,}",
                     help="Total individual predictions made"
                 )
                 col4.metric(
                     "Avg Processing Time",
-                    f"{stats_data.get('average_processing_time_seconds', 0):.2f}s",
+                    f"{(stats_data.get('average_processing_time_seconds') or 0):.2f}s",
                     help="Average time to process a batch"
                 )
 
@@ -637,103 +637,48 @@ def render_system_health_tab():
     except Exception as e:
         st.error(f"Error: {str(e)}")
 
-    # System information
+    # NEW: Backend API Resources
     st.markdown("---")
-    st.subheader("System Information")
-
-    import platform
-
+    st.subheader("🚀 Backend API Resources")
+    
     try:
-        import psutil
-        has_psutil = True
-    except ImportError:
-        has_psutil = False
-
-    col1, col2, col3 = st.columns(3)
-
-    with col1:
-        st.metric("Python Version", platform.python_version())
-        st.metric("Platform", platform.system())
-
-    with col2:
-        if has_psutil:
-            try:
-                memory = psutil.virtual_memory()
-                st.metric("Memory Usage", f"{memory.percent}%")
-                st.metric("Available Memory", f"{memory.available / (1024**3):.1f} GB")
-            except:
-                st.write("Memory info not available")
-        else:
-            st.info("Install psutil for memory metrics")
-
-    with col3:
-        if has_psutil:
-            try:
-                # Use interval=None for non-blocking call (returns instant value based on last call)
-                cpu_percent = psutil.cpu_percent(interval=None)
-                st.metric("CPU Usage", f"{cpu_percent}%")
-                st.metric("CPU Cores", psutil.cpu_count())
-            except:
-                st.write("CPU info not available")
-        else:
-            st.info("Install psutil for CPU metrics")
-
-
-    """Render the system health tab."""
-    st.markdown("### ⚙️ System Health")
-
-    try:
-        # API Health
-        health_response = requests.get(f"{API_BASE_URL}/health", timeout=5)
-        db_health_response = requests.get(f"{API_BASE_URL}/health/database", timeout=5)
-
-        if health_response.status_code == 200:
-            health = health_response.json()
-            db_health = {}
-            if db_health_response.status_code == 200:
-                db_health = db_health_response.json()
-
-            st.subheader("API Health")
-
-            # Display health info
-            col1, col2 = st.columns(2)
-
+        res_response = requests.get(f"{API_BASE_URL}/health/resources", timeout=2)
+        if res_response.status_code == 200:
+            res_data = res_response.json()
+            proc = res_data.get("process", {})
+            
+            col1, col2, col3, col4 = st.columns(4)
+            
             with col1:
-                st.json(health)
-
+                st.metric("API Memory", f"{(proc.get('memory_rss_mb') or 0):.1f} MB")
             with col2:
-                st.markdown("**Status Indicators:**")
-
-                checks = [
-                    ("API Responsive", health.get('status') == 'healthy'),
-                    ("Model Loaded", health.get('model_loaded', False)),
-                    ("Database Connected", db_health.get('connected', False)),
-                ]
-
-                for check_name, passed in checks:
-                    icon = "✅" if passed else "❌"
-                    st.write(f"{icon} {check_name}")
-
-        # Database health
-        st.markdown("---")
-        st.subheader("Database Health")
-
-        if db_health_response.status_code == 200:
-            db_info = db_health_response.json()
-            st.json(db_info)
+                st.metric("API CPU", f"{(proc.get('cpu_percent') or 0):.1f}%")
+            with col3:
+                uptime = proc.get('uptime_seconds', 0)
+                if uptime > 3600:
+                    uptime_str = f"{uptime/3600:.1f}h"
+                elif uptime > 60:
+                    uptime_str = f"{uptime/60:.1f}m"
+                else:
+                    uptime_str = f"{uptime:.0f}s"
+                st.metric("API Uptime", uptime_str)
+            with col4:
+                st.metric("API Threads", proc.get('threads', 0))
+                
+            # Show raw JSON in expander for debugging
+            with st.expander("View Full Resource JSON"):
+                st.json(res_data)
         else:
-            st.warning("Database health check not available")
-
-    except requests.exceptions.ConnectionError:
-        st.error("Cannot connect to API server")
+            st.warning("⚠️ API resource metrics temporarily unavailable")
     except Exception as e:
-        st.error(f"Error: {str(e)}")
+        st.info("Could not fetch backend resource metrics. Is the API running?")
 
     # System information
     st.markdown("---")
-    st.subheader("System Information")
+    st.subheader("💻 Machine Information (Streamlit Host)")
 
     import platform
+    import os
 
     try:
         import psutil

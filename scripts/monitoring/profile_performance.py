@@ -5,6 +5,8 @@
 import cProfile
 import pstats
 import time
+import os
+import psutil
 from pathlib import Path
 import pickle
 import pandas as pd
@@ -13,9 +15,23 @@ from io import StringIO
 
 PROJECT_ROOT = Path(__file__).parent.parent.parent
 
+def get_resource_usage():
+    """Get current process memory and CPU usage."""
+    process = psutil.Process(os.getpid())
+    mem_info = process.memory_info()
+    cpu_pct = process.cpu_percent(interval=0.1)
+    return {
+        'memory_mb': mem_info.rss / (1024 * 1024),
+        'cpu_percent': cpu_pct
+    }
+
 print("="*80)
 print("API PERFORMANCE PROFILING")
 print("="*80)
+
+# Initial usage
+initial_resources = get_resource_usage()
+print(f"Initial State: Memory={initial_resources['memory_mb']:.2f} MB, CPU={initial_resources['cpu_percent']}%")
 
 # Load model
 print("Loading model...")
@@ -36,6 +52,8 @@ print("="*80)
 
 def benchmark_predictions(X, n_iterations=10):
     times = []
+    mem_start = get_resource_usage()['memory_mb']
+    
     for _ in range(n_iterations):
         start = time.time()
         predictions = model.predict(X.values)
@@ -43,10 +61,11 @@ def benchmark_predictions(X, n_iterations=10):
         elapsed = (time.time() - start) * 1000
         times.append(elapsed)
     
-    return times
+    mem_end = get_resource_usage()['memory_mb']
+    return times, mem_end - mem_start
 
 print(f"Benchmarking {len(sample)} predictions (10 iterations)...")
-times = benchmark_predictions(sample)
+times, mem_delta = benchmark_predictions(sample)
 
 print(f"Results:")
 print(f"  Min time: {min(times):.2f} ms")
@@ -56,6 +75,15 @@ print(f"  Median time: {np.median(times):.2f} ms")
 print(f"  Std dev: {np.std(times):.2f} ms")
 print(f"  Time per application: {np.mean(times)/len(sample):.2f} ms")
 print(f"  Throughput: {len(sample)/(np.mean(times)/1000):.1f} predictions/second")
+
+# Resource Usage section
+print("="*80)
+print("RESOURCE USAGE")
+print("="*80)
+current_resources = get_resource_usage()
+print(f"  Current Memory: {current_resources['memory_mb']:.2f} MB")
+print(f"  Memory Delta (during benchmark): {mem_delta:+.2f} MB")
+print(f"  Peak CPU Load (sampled): {current_resources['cpu_percent']}%")
 
 # Profile with cProfile
 print("="*80)

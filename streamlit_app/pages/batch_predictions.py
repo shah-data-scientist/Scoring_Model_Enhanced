@@ -478,7 +478,8 @@ def render_download_reports_tab():
                             st.write(f"**Processing Time:** {proc_time_val:.2f}s")
 
                         with col3:
-                            st.write(f"**Avg Probability:** {batch.get('avg_probability', 0):.2%}")
+                            avg_prob_val = batch.get('avg_probability') or 0
+                            st.write(f"**Avg Probability:** {avg_prob_val:.2%}")
                             risk_dist = batch.get('risk_distribution', {})
                             st.write(f"**High Risk:** {risk_dist.get('HIGH', 0) + risk_dist.get('CRITICAL', 0)}")
 
@@ -534,7 +535,11 @@ def generate_detailed_html_report(predictions: list, batch_name: str) -> str:
     # Summary statistics
     total = len(predictions)
     high_risk_count = sum(1 for p in predictions if p.get('risk_level') in ['HIGH', 'CRITICAL'])
-    avg_prob = np.mean([p.get('probability', 0) for p in predictions])
+    
+    # Calculate average probability safely
+    probs = [p.get('probability') for p in predictions]
+    probs = [p for p in probs if p is not None]
+    avg_prob = np.mean(probs) if probs else 0
 
     html = f"""
     <!DOCTYPE html>
@@ -570,6 +575,9 @@ def generate_detailed_html_report(predictions: list, batch_name: str) -> str:
                 border-radius: 10px;
                 box-shadow: 0 2px 10px rgba(0,0,0,0.1);
                 text-align: center;
+            }}
+            .summary-card-wide {{
+                grid-column: span 1;
             }}
             .summary-value {{
                 font-size: 32px;
@@ -790,7 +798,7 @@ def generate_detailed_html_report(predictions: list, batch_name: str) -> str:
     # Generate collapsible section for each application
     for pred in predictions:
         sk_id = pred.get('SK_ID_CURR') or pred.get('sk_id_curr') or 'Unknown'
-        probability = pred.get('probability', 0)
+        probability = pred.get('probability') or 0
         risk_level = pred.get('risk_level', 'UNKNOWN')
         shap_values = pred.get('shap_values', {})
         top_features = pred.get('top_features', [])

@@ -19,6 +19,8 @@ from fastapi import FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi import Request
 import time
+import os
+import psutil
 from pydantic import BaseModel, Field, validator
 
 # Import routers
@@ -37,7 +39,20 @@ from src.validation import DataValidationError, validate_prediction_probabilitie
 PROJECT_ROOT = Path(__file__).parent.parent
 CONFIG_DIR = PROJECT_ROOT / "config"
 with open(CONFIG_DIR / "all_raw_features.json") as f:
-    ALL_RAW_FEATURES = json.load(f)
+    RAW_FEATURES_CONFIG = json.load(f)
+
+# Load the full list of 189 model features
+with open(CONFIG_DIR / "model_features.txt") as f:
+    ALL_MODEL_FEATURES = [line.strip() for line in f if line.strip()]
+
+# Overwrite EXPECTED_FEATURES to be exactly the count from the model features
+EXPECTED_FEATURES = len(ALL_MODEL_FEATURES)
+
+# Load feature ranges for validation
+FEATURE_RANGES = {}
+if (CONFIG_DIR / "feature_ranges.json").exists():
+    with open(CONFIG_DIR / "feature_ranges.json") as f:
+        FEATURE_RANGES = json.load(f)
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -384,12 +399,65 @@ async def database_health():
     }
 
 
+@app.get("/health/resources", tags=["General"])
+async def resources_health():
+    """System and Process resource usage check."""
+    process = psutil.Process(os.getpid())
+    mem_info = process.memory_info()
+    
+    # System-wide memory
+    sys_mem = psutil.virtual_memory()
+    
+    return {
+        "process": {
+            "memory_rss_mb": round(mem_info.rss / (1024 * 1024), 2),
+            "memory_vms_mb": round(mem_info.vms / (1024 * 1024), 2),
+            "cpu_percent": psutil.cpu_percent(interval=None),
+            "threads": process.num_threads(),
+            "uptime_seconds": round(time.time() - process.create_time(), 2)
+        },
+        "system": {
+            "cpu_count": psutil.cpu_count(),
+            "memory_total_gb": round(sys_mem.total / (1024**3), 2),
+            "memory_used_percent": sys_mem.percent,
+            "memory_available_gb": round(sys_mem.available / (1024**3), 2)
+        },
+        "timestamp": datetime.now().isoformat()
+    }
+
+
+def validate_input_feature_ranges_single_prediction(input_data: PredictionInput):
+    """
+    Validates input features against predefined ranges for a single prediction.
+    Raises HTTPException if any feature is out of range.
+    """
+    if not FEATURE_RANGES:
+        return # No ranges defined, skip validation
+
+    # Map feature values to their corresponding names using ALL_MODEL_FEATURES order
+    # Assuming input_data.features are ordered according to ALL_MODEL_FEATURES
+    for i, value in enumerate(input_data.features):
+        feature_name = ALL_MODEL_FEATURES[i] # Get feature name by index
+        if feature_name in FEATURE_RANGES:
+            rules = FEATURE_RANGES[feature_name]
+            min_val = rules.get("min")
+            max_val = rules.get("max")
+
+            if (min_val is not None and value < min_val) or \
+               (max_val is not None and value > max_val):
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail=f"Feature '{feature_name}' value {value} is out of expected range "
+                           f"[{min_val if min_val is not None else '-inf'}, {max_val if max_val is not None else '+inf'}]."
+                )
+
 @app.post(
     "/predict",
     response_model=PredictionOutput,
     tags=["Prediction"],
     responses={
         400: {"model": ErrorResponse, "description": "Invalid input"},
+        422: {"model": ErrorResponse, "description": "Validation error"}, # Added 422
         500: {"model": ErrorResponse, "description": "Prediction failed"}
     }
 )
@@ -415,6 +483,9 @@ async def predict(input_data: PredictionInput):
         )
 
     try:
+        # Perform range validation
+        validate_input_feature_ranges_single_prediction(input_data)
+
         # Prepare features
         features = np.array(input_data.features).reshape(1, -1)
 
@@ -447,7 +518,8 @@ async def predict(input_data: PredictionInput):
             timestamp=datetime.now().isoformat(),
             model_version=model_metadata.get('stage', 'unknown')
         )
-
+    except HTTPException: # Allow HTTPExceptions to pass through
+        raise
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

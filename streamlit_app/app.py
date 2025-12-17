@@ -78,21 +78,17 @@ if 'auth_initialized' not in st.session_state:
 
 
 def render_header():
-    """Render the header with user info and logout."""
+    """Render the header with user info."""
     # Get user from session state
     username = st.session_state.get('username')
     user_role = st.session_state.get('user_role')
 
     if username and user_role:
-        col1, col2, col3 = st.columns([6, 2, 1])
+        col1, col2 = st.columns([6, 3])
         with col1:
             st.markdown("### 🏦 Credit Scoring Dashboard")
         with col2:
             st.markdown(f"👤 **{username}** ({user_role})")
-        with col3:
-            if st.button("🚪 Logout"):
-                logout_user()
-                st.rerun()
         st.markdown("---")
 
 

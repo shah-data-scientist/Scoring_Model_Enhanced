@@ -13,6 +13,7 @@ import io
 import logging
 import time
 from datetime import datetime
+from pathlib import Path # Added missing import
 
 import numpy as np
 import pandas as pd
@@ -30,10 +31,14 @@ from api.utils.logging import setup_production_logger, log_batch_prediction, log
 from backend import crud
 from backend.database import get_db
 
+# Load the full list of 189 model features
+PROJECT_ROOT = Path(__file__).parent.parent
+CONFIG_DIR = PROJECT_ROOT / "config"
+with open(CONFIG_DIR / "model_features.txt") as f:
+    ALL_MODEL_FEATURES = [line.strip() for line in f if line.strip()]
+
 # Create router
 router = APIRouter(prefix="/batch", tags=["Batch Predictions"])
-
-# Setup production logger
 production_logger = setup_production_logger()
 logger = logging.getLogger(__name__)
 
@@ -453,92 +458,7 @@ async def predict_batch(
         )
 
 
-# UNUSED: Alternative download endpoint not used by Streamlit
-# @router.post("/predict/download")
-# async def predict_batch_download(
-#     application: UploadFile = File(...),
-#     bureau: UploadFile = File(...),
-#     bureau_balance: UploadFile = File(...),
-#     previous_application: UploadFile = File(...),
-#     credit_card_balance: UploadFile = File(...),
-#     installments_payments: UploadFile = File(...),
-#     pos_cash_balance: UploadFile = File(...)
-# ):
-#     """Batch predictions with CSV download.
-#
-#     Same as /predict but returns CSV file for download.
-#
-#     Returns:
-#         CSV file with predictions
-#
-#     """
-#     # Reuse predict_batch logic
-#     result = await predict_batch(
-#         application=application,
-#         bureau=bureau,
-#         bureau_balance=bureau_balance,
-#         previous_application=previous_application,
-#         credit_card_balance=credit_card_balance,
-#         installments_payments=installments_payments,
-#         pos_cash_balance=pos_cash_balance
-#     )
-#
-#     # Convert predictions to DataFrame
-#     predictions_data = [p.dict() for p in result.predictions]
-#     df = pd.DataFrame(predictions_data)
-#
-#     # Create CSV stream
-#     csv_stream = dataframe_to_csv_stream(df)
-#
-#     # Return as downloadable file
-#     return StreamingResponse(
-#         csv_stream,
-#         media_type="text/csv",
-#         headers={
-#             "Content-Disposition": f"attachment; filename=predictions_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
-#         }
-#     )
 
-
-# UNUSED: Batch info endpoint not used by Streamlit
-# @router.get("/info")
-# async def batch_info():
-#     """Get information about batch prediction endpoint.
-#
-#     Returns:
-#         Endpoint information and requirements
-#
-#     """
-#     return {
-#         "endpoint": "/batch/predict",
-#         "method": "POST",
-#         "description": "Batch credit scoring predictions from raw CSV files",
-#         "required_files": [
-#             "application.csv",
-#             "bureau.csv",
-#             "bureau_balance.csv",
-#             "previous_application.csv",
-#             "credit_card_balance.csv",
-#             "installments_payments.csv",
-#             "POS_CASH_balance.csv"
-#         ],
-#         "critical_columns": {
-#             "application.csv": 46,
-#             "threshold": "85%"
-#         },
-#         "output_format": {
-#             "SK_ID_CURR": "int",
-#             "PREDICTION": "int (0=no default, 1=default)",
-#             "PROBABILITY": "float [0-1]",
-#             "RISK_LEVEL": "str (LOW/MEDIUM/HIGH/CRITICAL)"
-#         },
-#         "risk_levels": {
-#             "LOW": "probability < 0.2",
-#             "MEDIUM": "0.2 <= probability < 0.4",
-#             "HIGH": "0.4 <= probability < 0.6",
-#             "CRITICAL": "probability >= 0.6"
-#         }
-#     }
 
 
 # ============================================================================

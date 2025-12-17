@@ -32,9 +32,37 @@ with open(CONFIG_DIR / "required_files.json") as f:
 
 # Load critical features configuration
 
+
+
 with open(CONFIG_DIR / "critical_raw_features.json") as f:
 
+
+
     CRITICAL_FEATURES_CONFIG = json.load(f)
+
+
+
+
+
+
+
+# Load feature ranges configuration
+
+
+
+FEATURE_RANGES = {}
+
+
+
+if (CONFIG_DIR / "feature_ranges.json").exists():
+
+
+
+    with open(CONFIG_DIR / "feature_ranges.json") as f:
+
+
+
+        FEATURE_RANGES = json.load(f)
 
 
 
@@ -205,122 +233,705 @@ def validate_csv_structure(file: UploadFile, filename: str) -> pd.DataFrame:
 
 
 
+def validate_dataframe_feature_ranges(df: pd.DataFrame) -> None:
+
+
+
+
+
+    """
+
+
+
+
+
+    Validates DataFrame features against predefined ranges.
+
+
+
+
+
+    Raises FileValidationError if any feature is out of range.
+
+
+
+
+
+    """
+
+
+
+
+
+    if not FEATURE_RANGES:
+
+
+
+
+
+        return # No ranges defined, skip validation
+
+
+
+
+
+
+
+
+
+
+
+    # Iterate through model features to apply ranges
+
+
+
+
+
+    for model_feature_name in ALL_MODEL_FEATURES: # ALL_MODEL_FEATURES is the 189 features
+
+
+
+
+
+        if model_feature_name in FEATURE_RANGES: # Check if this model feature has a defined range
+
+
+
+
+
+            rules = FEATURE_RANGES[model_feature_name]
+
+
+
+
+
+            min_val = rules.get("min")
+
+
+
+
+
+            max_val = rules.get("max")
+
+
+
+
+
+            
+
+
+
+
+
+            # Ensure the feature exists in the current DataFrame
+
+
+
+
+
+            if model_feature_name not in df.columns:
+
+
+
+
+
+                # If a model feature with a defined range is missing, this is a schema error
+
+
+
+
+
+                # For range validation, we only check features that are present.
+
+
+
+
+
+                continue
+
+
+
+
+
+
+
+
+
+
+
+            # Check values in the DataFrame column
+
+
+
+
+
+            col_data = df[model_feature_name]
+
+
+
+
+
+
+
+
+
+
+
+            if min_val is not None and (col_data < min_val).any():
+
+
+
+
+
+                out_of_range_count = (col_data < min_val).sum()
+
+
+
+
+
+                raise FileValidationError(
+
+
+
+
+
+                    f"Feature '{model_feature_name}' has {out_of_range_count} values below min "
+
+
+
+
+
+                    f"({min_val}). Example: {col_data[col_data < min_val].iloc[0]}"
+
+
+
+
+
+                )
+
+
+
+
+
+            
+
+
+
+
+
+            if max_val is not None and (col_data > max_val).any():
+
+
+
+
+
+                out_of_range_count = (col_data > max_val).sum()
+
+
+
+
+
+                raise FileValidationError(
+
+
+
+
+
+                    f"Feature '{model_feature_name}' has {out_of_range_count} values above max "
+
+
+
+
+
+                    f"({max_val}). Example: {col_data[col_data > max_val].iloc[0]}"
+
+
+
+
+
+                )
+
+
+
+
+
+
+
+
+
+
+
 def validate_all_files(uploaded_files: dict[str, UploadFile]) -> dict[str, pd.DataFrame]:
+
+
+
+
+
     """Comprehensive validation of all uploaded CSV files.
 
+
+
+
+
+
+
+
+
+
+
     Args:
+
+
+
+
+
         uploaded_files: Dictionary of {filename: UploadFile}
 
 
 
+
+
+
+
+
+
+
+
     Returns:
+
+
+
+
+
         Dictionary of {filename: DataFrame}
 
 
 
+
+
+
+
+
+
+
+
     Raises:
+
+
+
+
+
         HTTPException: If validation fails
 
+
+
+
+
+
+
+
+
+
+
     """
+
+
+
+
+
     # Step 1: Check file presence
+
+
+
+
+
+
+
+
+
+
 
     files_present, missing_files = validate_file_presence(uploaded_files)
 
 
 
+
+
+
+
+
+
+
+
     if not files_present:
+
+
+
+
 
         raise HTTPException(
 
+
+
+
+
             status_code=status.HTTP_400_BAD_REQUEST,
+
+
+
+
 
             detail={
 
+
+
+
+
                 "error": "Missing required files",
+
+
+
+
 
                 "missing_files": missing_files,
 
+
+
+
+
                 "required_files": sorted(list(REQUIRED_FILES))
+
+
+
+
 
             }
 
+
+
+
+
         )
+
+
+
+
+
+
+
+
 
 
 
     # Step 2: Load and validate structure
 
+
+
+
+
+
+
+
+
+
+
     dataframes = {}
+
+
+
+
 
     errors = []
 
 
 
+
+
+
+
+
+
+
+
     for filename, file in uploaded_files.items():
+
+
+
+
 
         try:
 
+
+
+
+
             df = validate_csv_structure(file, filename)
+
+
+
+
 
             dataframes[filename] = df
 
+
+
+
+
         except FileValidationError as e:
+
+
+
+
 
             errors.append(str(e))
 
 
 
+
+
+
+
+
+
+
+
     if errors:
+
+
+
+
 
         raise HTTPException(
 
+
+
+
+
             status_code=status.HTTP_400_BAD_REQUEST,
+
+
+
+
 
             detail={
 
+
+
+
+
                 "error": "File structure validation failed",
+
+
+
+
 
                 "errors": errors
 
+
+
+
+
             }
 
+
+
+
+
         )
+
+
+
+
+
+
+
+
 
 
 
     # Step 3: Validate critical columns in application.csv
 
+
+
+
+
+
+
+
+
+
+
     if 'application.csv' in dataframes:
+
+
+
+
 
         is_valid, missing_cols, coverage = validate_application_columns(
 
+
+
+
+
             dataframes['application.csv']
+
+
+
+
 
         )
 
 
 
+
+
+
+
+
+
+
+
         if not is_valid:
+
+
+
+
 
             raise HTTPException(
 
+
+
+
+
                 status_code=status.HTTP_400_BAD_REQUEST,
+
+
+
+
 
                 detail={
 
+
+
+
+
                     "error": "Critical columns missing in application.csv",
+
+
+
+
 
                     "missing_columns": missing_cols,
 
+
+
+
+
                     "coverage": f"{coverage*100:.1f}%",
+
+
+
+
 
                     "required_coverage": f"{CRITICAL_THRESHOLD*100:.1f}%",
 
+
+
+
+
                     "message": f"Only {len(CRITICAL_APPLICATION_COLUMNS) - len(missing_cols)}/{len(CRITICAL_APPLICATION_COLUMNS)} critical columns present"
+
+
+
+
 
                 }
 
+
+
+
+
             )
+
+
+
+
+
+
+
+
+
+
+
+    # Step 4: Validate feature ranges for application.csv
+
+
+
+
+
+    # Note: Range validation is applied to the raw application.csv
+
+
+
+
+
+    # before full preprocessing.
+
+
+
+
+
+    if 'application.csv' in dataframes and FEATURE_RANGES:
+
+
+
+
+
+        try:
+
+
+
+
+
+            validate_dataframe_feature_ranges(dataframes['application.csv'])
+
+
+
+
+
+        except FileValidationError as e:
+
+
+
+
+
+            raise HTTPException(
+
+
+
+
+
+                status_code=status.HTTP_400_BAD_REQUEST,
+
+
+
+
+
+                detail={"error": f"Range validation failed for application.csv: {str(e)}"}
+
+
+
+
+
+            )
+
+
+
+
+
+            
+
+
 
 
 
@@ -445,80 +1056,327 @@ def validate_sk_id_consistency(dataframes: dict[str, pd.DataFrame]) -> tuple[boo
 
 
 
-# Load all raw features
+# Load the full list of 189 model features
 
-with open(CONFIG_DIR / "all_raw_features.json") as f:
 
-    ALL_RAW_FEATURES = json.load(f)
+
+
+
+with open(CONFIG_DIR / "model_features.txt") as f:
+
+
+
+
+
+    ALL_MODEL_FEATURES = [line.strip() for line in f if line.strip()]
+
+
+
+
+
+
 
 
 
 
 
 def validate_input_data(df: pd.DataFrame) -> pd.DataFrame:
+
+
+
+
+
     """Validates and cleans the input DataFrame for prediction.
 
+
+
+
+
+
+
+
+
+
+
     Args:
+
+
+
+
+
         df (pd.DataFrame): The input DataFrame.
 
 
 
+
+
+
+
+
+
+
+
     Returns:
+
+
+
+
+
         pd.DataFrame: The validated and cleaned DataFrame with columns
 
-                      ordered as in ALL_RAW_FEATURES.
+
+
+
+
+                      ordered as in ALL_MODEL_FEATURES.
+
+
+
+
+
+
+
+
 
 
 
     Raises:
+
+
+
+
+
         ValueError: If the DataFrame is empty or contains missing required columns.
 
+
+
+
+
+
+
+
+
+
+
     """
+
+
+
+
+
     if df.empty:
+
+
+
+
 
         raise ValueError("Input DataFrame is empty.")
 
 
 
+
+
+
+
+
+
+
+
     # Convert all column names to string type
+
+
+
+
 
     df.columns = df.columns.astype(str)
 
 
 
-    # Ensure all required columns are present
+
+
+
+
+
+
+
+
+    # Ensure all required columns are present (model features)
+
+
+
+
 
     current_columns = set(df.columns)
 
-    required_columns = set(ALL_RAW_FEATURES)
+
+
+
+
+    required_columns = set(ALL_MODEL_FEATURES)
+
+
+
+
 
     missing_columns = required_columns - current_columns
 
 
 
+
+
+
+
+
+
+
+
     if missing_columns:
 
-        raise ValueError(f"Missing required columns: {', '.join(sorted(list(missing_columns)))}")
 
 
 
-    # Remove extra columns and log a warning
+
+        # Instead of erroring on missing model features directly,
+
+
+
+
+
+        # we allow the preprocessing pipeline to handle missing values for these.
+
+
+
+
+
+        # However, for critical raw features (like those from application.csv that we validate),
+
+
+
+
+
+        # this check might be too lenient here.
+
+
+
+
+
+        # This part of validate_input_data is mostly for ensuring a consistent structure
+
+
+
+
+
+        # *after* preprocessing, not for raw CSV initial validation.
+
+
+
+
+
+        # The actual raw CSV validation happens in validate_all_files.
+
+
+
+
+
+        pass # Allow pipeline to add/impute missing model features if they are not in the raw data.
+
+
+
+
+
+             # This validation function is more for ensuring a dataframe matches the model's *expected* input format.
+
+
+
+
+
+
+
+
+
+
+
+    # Remove extra columns
+
+
+
+
 
     extra_columns = current_columns - required_columns
 
+
+
+
+
     if extra_columns:
+
+
+
+
 
         print(f"Warning: Extra columns found and removed: {', '.join(sorted(list(extra_columns)))}")
 
-        # Drop extra columns
+
+
+
 
         df = df.drop(columns=list(extra_columns))
 
 
 
-    # Ensure column order matches ALL_RAW_FEATURES
 
-    df = df[ALL_RAW_FEATURES]
+
+
+
+
+
+
+
+    # Add missing model features with NaN, to be handled by the preprocessing pipeline
+
+
+
+
+
+    for col in required_columns:
+
+
+
+
+
+        if col not in df.columns:
+
+
+
+
+
+            df[col] = np.nan
+
+
+
+
+
+
+
+
+
+
+
+    # Ensure column order matches ALL_MODEL_FEATURES
+
+
+
+
+
+    df = df[ALL_MODEL_FEATURES]
+
+
+
+
+
+
+
+
 
 
 

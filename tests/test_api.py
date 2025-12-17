@@ -5,24 +5,122 @@ Run with: poetry run pytest tests/test_api.py -v
 import numpy as np
 import pytest
 from fastapi.testclient import TestClient
+from pathlib import Path
+import json
 
-from api.app import app
+from api.app import app # Import the FastAPI app
 
-# Create test client
-client = TestClient(app)
+# Added for range validation tests
+import io
+import pandas as pd
+from fastapi import UploadFile
 
+# Global paths and configs for tests
+PROJECT_ROOT = Path(__file__).parent.parent
+CONFIG_DIR = PROJECT_ROOT / "config"
+
+# Load raw features for test setup (e.g., application.csv features)
+with open(CONFIG_DIR / "all_raw_features.json") as f:
+    RAW_FEATURES_CONFIG_TEST = json.load(f)
+ALL_RAW_FEATURES_TEST = RAW_FEATURES_CONFIG_TEST["application.csv"]
+
+# Load critical application columns for test setup
+with open(CONFIG_DIR / "critical_raw_features.json") as f:
+    CRITICAL_FEATURES_CONFIG_TEST = json.load(f)
+CRITICAL_APPLICATION_COLUMNS_TEST = set(CRITICAL_FEATURES_CONFIG_TEST["application.csv"])
+
+# Load the full list of 189 model features
+with open(CONFIG_DIR / "model_features.txt") as f:
+    ALL_MODEL_FEATURES_TEST = [line.strip() for line in f if line.strip()]
+
+# Load feature ranges for tests
+with open(CONFIG_DIR / "feature_ranges.json") as f:
+    FEATURE_RANGES_TEST = json.load(f)
+
+
+# --- Helper functions for tests ---
+
+def generate_in_range_features(num_features: int) -> list[float]:
+    """
+    Generates a list of feature values, ensuring those with defined ranges
+    in FEATURE_RANGES_TEST are within those ranges.
+    """
+    features = []
+    for i in range(num_features):
+        # Get the name of the feature for the current index from ALL_MODEL_FEATURES_TEST
+        # Handle cases where num_features might exceed ALL_MODEL_FEATURES_TEST length
+        if i < len(ALL_MODEL_FEATURES_TEST):
+            feature_name = ALL_MODEL_FEATURES_TEST[i]
+        else:
+            feature_name = f"unknown_feature_{i}" # Fallback for extra features if any
+
+        if feature_name in FEATURE_RANGES_TEST:
+            rules = FEATURE_RANGES_TEST[feature_name]
+            min_val = rules.get("min", -1e9) # default to a very low number
+            max_val = rules.get("max", 1e9)  # default to a very high number
+            
+            # Generate a random float within the range
+            # Ensure min/max are compatible for np.random.uniform
+            val = np.random.uniform(max(min_val, -1e8), min(max_val, 1e8))
+            features.append(float(val))
+        else:
+            # If no specific range, generate a random float between 0 and 1
+            features.append(float(np.random.random()))
+    return features
+
+
+def create_mock_batch_files(application_df: pd.DataFrame) -> dict:
+    """
+    Creates a dictionary of mock UploadFile objects for batch prediction.
+    The application_df should already contain the necessary SK_ID_CURR column.
+    """
+    mock_files = {}
+
+    # Ensure application_df has all critical columns for testing
+    for col in CRITICAL_APPLICATION_COLUMNS_TEST:
+        if col not in application_df.columns:
+            application_df[col] = 0.0 # Add missing critical columns with default values
+
+    # Mock application.csv
+    app_csv_content = io.StringIO()
+    application_df.to_csv(app_csv_content, index=False)
+    app_csv_content.seek(0)
+    mock_files["application"] = ("application.csv", app_csv_content.getvalue(), "text/csv")
+
+    # Create minimal content for other required files
+    # Needs at least one col (SK_ID_CURR) and one row for validate_csv_structure to pass
+    empty_valid_csv_template = "SK_ID_CURR\n1\n"
+    
+    required_aux_files = [
+        "bureau", "bureau_balance", "previous_application",
+        "credit_card_balance", "installments_payments", "pos_cash_balance"
+    ]
+    for file_key in required_aux_files:
+        mock_files[file_key] = (f"{file_key}.csv", empty_valid_csv_template, "text/csv")
+    
+    # FastAPI test client expects 'files' param as a dict of {name: (filename, content, media_type)}
+    return mock_files
+
+# --- End Helper functions for tests ---
+
+
+@pytest.fixture(scope="module")
+def test_app_client():
+    # Ensure app startup events are run to load the model
+    with TestClient(app) as client:
+        yield client
 
 class TestHealthEndpoint:
     """Tests for /health endpoint."""
 
-    def test_health_check_success(self):
+    def test_health_check_success(self, test_app_client):
         """Test health check returns 200."""
-        response = client.get("/health")
+        response = test_app_client.get("/health")
         assert response.status_code == 200
 
-    def test_health_check_response_structure(self):
+    def test_health_check_response_structure(self, test_app_client):
         """Test health check response has required fields."""
-        response = client.get("/health")
+        response = test_app_client.get("/health")
         data = response.json()
 
         assert "status" in data
@@ -30,9 +128,9 @@ class TestHealthEndpoint:
         assert "model_name" in data
         assert "timestamp" in data
 
-    def test_health_check_status_values(self):
+    def test_health_check_status_values(self, test_app_client):
         """Test health status is valid."""
-        response = client.get("/health")
+        response = test_app_client.get("/health")
         data = response.json()
 
         assert data["status"] in ["healthy", "unhealthy"]
@@ -42,14 +140,14 @@ class TestHealthEndpoint:
 class TestRootEndpoint:
     """Tests for / root endpoint."""
 
-    def test_root_returns_200(self):
+    def test_root_returns_200(self, test_app_client):
         """Test root endpoint returns 200."""
-        response = client.get("/")
+        response = test_app_client.get("/")
         assert response.status_code == 200
 
-    def test_root_has_api_info(self):
+    def test_root_has_api_info(self, test_app_client):
         """Test root returns API information."""
-        response = client.get("/")
+        response = test_app_client.get("/")
         data = response.json()
 
         assert "service" in data
@@ -60,19 +158,19 @@ class TestRootEndpoint:
 class TestPredictionEndpoint:
     """Tests for /predict endpoint."""
 
-    def test_predict_valid_input(self):
+    def test_predict_valid_input(self, test_app_client):
         """Test prediction with valid input."""
-        # Generate random features (189 total)
-        features = np.random.random(189).tolist()
+        features = generate_in_range_features(len(ALL_MODEL_FEATURES_TEST))
 
         data = {
             "features": features,
             "client_id": "TEST_001"
         }
 
-        response = client.post("/predict", json=data)
+        response = test_app_client.post("/predict", json=data)
 
-        # May return 503 if model not loaded, which is OK for testing
+        if response.status_code == 500:
+            print("\nAPI returned 500, response detail:", response.json())
         assert response.status_code in [200, 503]
 
         if response.status_code == 200:
@@ -84,60 +182,128 @@ class TestPredictionEndpoint:
             assert 0 <= result["probability"] <= 1
             assert result["risk_level"] in ["LOW", "MEDIUM", "HIGH", "CRITICAL"]
 
-    def test_predict_invalid_feature_count(self):
+    def test_predict_invalid_feature_count(self, test_app_client):
         """Test prediction with wrong number of features."""
         data = {
             "features": [0.5] * 50,  # Only 50 features, need 189
             "client_id": "TEST_001"
         }
 
-        response = client.post("/predict", json=data)
+        response = test_app_client.post("/predict", json=data)
         assert response.status_code == 422  # Validation error
 
-    def test_predict_without_client_id(self):
+    def test_predict_without_client_id(self, test_app_client):
         """Test prediction without client_id (optional field)."""
-        features = np.random.random(189).tolist()
+        features = generate_in_range_features(len(ALL_MODEL_FEATURES_TEST))
 
         data = {
             "features": features
             # No client_id
         }
 
-        response = client.post("/predict", json=data)
+        response = test_app_client.post("/predict", json=data)
         assert response.status_code in [200, 503]
 
-    def test_predict_with_nan_features(self):
+    def test_predict_with_nan_features(self, test_app_client):
         """Test prediction rejects NaN values."""
-        features = [0.5] * 188 + ["NaN"]
+        features = generate_in_range_features(len(ALL_MODEL_FEATURES_TEST))
+        # Inject NaN into a feature
+        features[0] = "NaN" # Pass as string to allow JSON serialization
 
         data = {
             "features": features,
             "client_id": "TEST_001"
         }
 
-        response = client.post("/predict", json=data)
+        response = test_app_client.post("/predict", json=data)
         assert response.status_code == 422  # Validation error
 
-    def test_predict_with_inf_features(self):
+    def test_predict_with_inf_features(self, test_app_client):
         """Test prediction rejects infinite values."""
-        features = [0.5] * 188 + ["Infinity"]
+        features = generate_in_range_features(len(ALL_MODEL_FEATURES_TEST))
+        # Inject Inf into a feature
+        features[0] = "Infinity" # Pass as string to allow JSON serialization
 
         data = {
             "features": features,
             "client_id": "TEST_001"
         }
 
-        response = client.post("/predict", json=data)
+        response = test_app_client.post("/predict", json=data)
         assert response.status_code == 422  # Validation error
 
-    def test_predict_empty_features(self):
+    def test_predict_out_of_range_days_birth(self, test_app_client):
+        """Test prediction rejects out-of-range DAYS_BIRTH (too low)."""
+        features = generate_in_range_features(len(ALL_MODEL_FEATURES_TEST)) # Use len(ALL_MODEL_FEATURES_TEST)
+        
+        try:
+            days_birth_idx = ALL_MODEL_FEATURES_TEST.index("DAYS_BIRTH") # Use ALL_MODEL_FEATURES_TEST
+            features[days_birth_idx] = -30000  # Inject out-of-range value
+        except ValueError:
+            pytest.skip("DAYS_BIRTH not in ALL_MODEL_FEATURES_TEST for this test setup, skipping range validation test.")
+
+        data = {"features": features, "client_id": "TEST_OOR_DB"}
+        response = test_app_client.post("/predict", json=data)
+        assert response.status_code == 422
+        assert "DAYS_BIRTH" in response.json()["detail"]
+        assert "out of expected range" in response.json()["detail"]
+
+    def test_predict_out_of_range_amt_income_total(self, test_app_client):
+        """Test prediction rejects out-of-range AMT_INCOME_TOTAL (too high)."""
+        features = generate_in_range_features(len(ALL_MODEL_FEATURES_TEST)) # Use len(ALL_MODEL_FEATURES_TEST)
+
+        try:
+            amt_income_total_idx = ALL_MODEL_FEATURES_TEST.index("AMT_INCOME_TOTAL") # Use ALL_MODEL_FEATURES_TEST
+            features[amt_income_total_idx] = 10000001.0  # Inject out-of-range value
+        except ValueError:
+            pytest.skip("AMT_INCOME_TOTAL not in ALL_MODEL_FEATURES_TEST for this test setup, skipping range validation test.")
+
+        data = {"features": features, "client_id": "TEST_OOR_AIT"}
+        response = test_app_client.post("/predict", json=data)
+        assert response.status_code == 422
+        assert "AMT_INCOME_TOTAL" in response.json()["detail"]
+        assert "out of expected range" in response.json()["detail"]
+
+    def test_predict_out_of_range_ext_source_1(self, test_app_client):
+        """Test prediction rejects out-of-range EXT_SOURCE_1 (too high)."""
+        features = generate_in_range_features(len(ALL_MODEL_FEATURES_TEST)) # Use len(ALL_MODEL_FEATURES_TEST)
+        
+        try:
+            ext_source_1_idx = ALL_MODEL_FEATURES_TEST.index("EXT_SOURCE_1") # Use ALL_MODEL_FEATURES_TEST
+            features[ext_source_1_idx] = 1.1  # Inject out-of-range value
+        except ValueError:
+            pytest.skip("EXT_SOURCE_1 not in ALL_MODEL_FEATURES_TEST for this test setup, skipping range validation test.")
+
+        data = {"features": features, "client_id": "TEST_OOR_ES1"}
+        response = test_app_client.post("/predict", json=data)
+        assert response.status_code == 422
+        assert "EXT_SOURCE_1" in response.json()["detail"]
+        assert "out of expected range" in response.json()["detail"]
+        
+    def test_predict_out_of_range_ext_source_2(self, test_app_client):
+        """Test prediction rejects out-of-range EXT_SOURCE_2 (too low)."""
+        features = generate_in_range_features(len(ALL_MODEL_FEATURES_TEST)) # Use len(ALL_MODEL_FEATURES_TEST)
+        
+        try:
+            ext_source_2_idx = ALL_MODEL_FEATURES_TEST.index("EXT_SOURCE_2") # Use ALL_MODEL_FEATURES_TEST
+            features[ext_source_2_idx] = -0.1  # Inject out-of-range value
+        except ValueError:
+            pytest.skip("EXT_SOURCE_2 not in ALL_MODEL_FEATURES_TEST for this test setup, skipping range validation test.")
+
+        data = {"features": features, "client_id": "TEST_OOR_ES2"}
+        response = test_app_client.post("/predict", json=data)
+        assert response.status_code == 422
+        assert "EXT_SOURCE_2" in response.json()["detail"]
+        assert "out of expected range" in response.json()["detail"]
+
+    def test_predict_empty_features(self, test_app_client):
         """Test prediction rejects empty feature list."""
         data = {
             "features": [],
             "client_id": "TEST_001"
         }
 
-        response = client.post("/predict", json=data)
+        response = test_app_client.post("/predict", json=data)
         assert response.status_code == 422  # Validation error
 
 
@@ -145,7 +311,7 @@ class TestBatchPredictionEndpoint:
     """Tests for /predict/batch endpoint."""
 
     @pytest.mark.skip(reason="Batch endpoint requires CSV payload")
-    def test_batch_predict_valid_input(self):
+    def test_batch_predict_valid_input(self, test_app_client):
         """Test batch prediction with valid input."""
         # Generate 3 random feature vectors
         features = [np.random.random(189).tolist() for _ in range(3)]
@@ -156,7 +322,7 @@ class TestBatchPredictionEndpoint:
             "client_ids": client_ids
         }
 
-        response = client.post("/predict/batch", json=data)
+        response = test_app_client.post("/predict/batch", json=data)
         assert response.status_code in [200, 503]
 
         if response.status_code == 200:
@@ -174,7 +340,7 @@ class TestBatchPredictionEndpoint:
             assert "client_id" in pred
 
     @pytest.mark.skip(reason="Batch endpoint requires CSV payload")
-    def test_batch_predict_without_client_ids(self):
+    def test_batch_predict_without_client_ids(self, test_app_client):
         """Test batch prediction without client_ids (optional)."""
         features = [np.random.random(189).tolist() for _ in range(2)]
 
@@ -183,10 +349,10 @@ class TestBatchPredictionEndpoint:
             # No client_ids
         }
 
-        response = client.post("/batch/predict", json=data)
+        response = test_app_client.post("/batch/predict", json=data)
         assert response.status_code in [200, 503]
 
-    def test_batch_predict_inconsistent_feature_lengths(self):
+    def test_batch_predict_inconsistent_feature_lengths(self, test_app_client):
         """Test batch prediction rejects inconsistent feature lengths."""
         features = [
             [0.5] * 189,  # Correct length
@@ -197,165 +363,94 @@ class TestBatchPredictionEndpoint:
             "features": features
         }
 
-        response = client.post("/batch/predict", json=data)
+        response = test_app_client.post("/batch/predict", json=data)
         assert response.status_code == 422  # Validation error
 
 
-    def test_batch_predict_empty_list(self):
+    def test_batch_predict_empty_list(self, test_app_client):
         """Test batch prediction rejects empty feature list."""
         data = {
             "features": []
         }
 
-        response = client.post("/batch/predict", json=data)
+        response = test_app_client.post("/batch/predict", json=data)
         assert response.status_code == 422  # Validation error
 
-    def test_batch_predict_missing_columns(self):
+    @pytest.mark.skip(reason="This test is for a JSON batch payload, but the API expects CSV files. Test needs to be adapted or removed.")
+    def test_batch_predict_missing_columns(self, test_app_client):
         """Test batch prediction with missing required columns."""
-        import json
-        from pathlib import Path
+        # This test is not applicable as the API expects CSVs
+        pass
 
-        PROJECT_ROOT = Path(__file__).parent.parent
-        CONFIG_DIR = PROJECT_ROOT / "config"
-        with open(CONFIG_DIR / "all_raw_features.json") as f:
-            ALL_RAW_FEATURES = json.load(f)
+    def test_batch_predict_out_of_range_days_birth_csv(self, test_app_client):
+        """Test batch prediction rejects CSV with out-of-range DAYS_BIRTH."""
+        valid_features_values = generate_in_range_features(len(ALL_MODEL_FEATURES_TEST))
+        
+        try:
+            days_birth_idx = ALL_MODEL_FEATURES_TEST.index("DAYS_BIRTH") # Use ALL_MODEL_FEATURES_TEST
+            valid_features_values[days_birth_idx] = -30000  # Inject out-of-range value
+        except ValueError:
+            pytest.skip("DAYS_BIRTH not in ALL_MODEL_FEATURES_TEST for this test setup.")
+        
+        df_cols = ALL_MODEL_FEATURES_TEST[:] # Copy to avoid modifying original list
+        row_data = valid_features_values[:] # Copy to avoid modifying original list
 
-        # Create features with some columns missing
-        features_with_missing_cols = [col for col in ALL_RAW_FEATURES if col != "SK_ID_CURR"] # Example missing column
+        if "SK_ID_CURR" not in df_cols:
+            df_cols.insert(0, "SK_ID_CURR") # Add if missing
+            row_data.insert(0, 1001) # Add dummy ID
+        else:
+            try:
+                sk_id_idx = df_cols.index("SK_ID_CURR")
+                row_data[sk_id_idx] = 1001
+            except ValueError:
+                pass
 
-        # Ensure that the features list is not empty, otherwise the pydantic validation will fail first
-        if not features_with_missing_cols:
-            pytest.skip("Not enough features to test missing columns without emptying the list.")
+        application_df = pd.DataFrame([row_data], columns=df_cols)
+        mock_files = create_mock_batch_files(application_df)
+        
+        response = test_app_client.post("/batch/predict", files=mock_files)
+        assert response.status_code == 400
+        assert "Range validation failed" in response.json()["detail"]["error"]
+        assert "DAYS_BIRTH" in response.json()["detail"]["error"]
+        assert "below min" in response.json()["detail"]["error"]
 
-        data = {
-            "features": [np.random.random(len(features_with_missing_cols)).tolist()],
-            "feature_names": features_with_missing_cols # This would typically be sent if column names were supported for single pred
-        }
+    def test_batch_predict_out_of_range_amt_credit_csv(self, test_app_client):
+        """Test batch prediction rejects CSV with out-of-range AMT_CREDIT."""
+        valid_features_values = generate_in_range_features(len(ALL_MODEL_FEATURES_TEST))
+        
+        try:
+            amt_credit_idx = ALL_MODEL_FEATURES_TEST.index("AMT_CREDIT") # Use ALL_MODEL_FEATURES_TEST
+            valid_features_values[amt_credit_idx] = 60000000.0  # Inject out-of-range value
+        except ValueError:
+            pytest.skip("AMT_CREDIT not in ALL_MODEL_FEATURES_TEST for this test setup.")
 
-        # For batch prediction, we're sending List[List[float]] and relying on ALL_RAW_FEATURES
-        # So we simulate missing columns by sending a shorter list of features than expected
-        # This test needs to be adapted to how `validate_input_data` is used in `predict_batch`
-        # `validate_input_data` expects a DataFrame, so we're testing the ValueError
-        # from constructing the DataFrame with fewer columns than `ALL_RAW_FEATURES`.
-        # This will now be caught by `validate_input_data`
+        df_cols = ALL_MODEL_FEATURES_TEST[:]
+        row_data = valid_features_values[:]
 
-        # Simulate missing columns by sending features that, when converted to DataFrame,
-        # will not match ALL_RAW_FEATURES in column count.
-        # This will trigger the ValueError in validate_input_data if number of cols doesn't match
-        # all_raw_features length
-        num_expected_features = len(ALL_RAW_FEATURES)
-        num_missing_features = 1
+        if "SK_ID_CURR" not in df_cols:
+            df_cols.insert(0, "SK_ID_CURR")
+            row_data.insert(0, 1002)
+        else:
+            try:
+                sk_id_idx = df_cols.index("SK_ID_CURR")
+                row_data[sk_id_idx] = 1002
+            except ValueError:
+                pass
 
-        malformed_features = [np.random.random(num_expected_features - num_missing_features).tolist()]
-
-        data = {
-            "features": malformed_features
-        }
-
-        response = client.post("/predict/batch", json=data)
-        # Expect 422 Pydantic validation error first if the number of features per row is incorrect
-        # If it passes Pydantic, then `validate_input_data` should raise ValueError -> 400 HTTPException
-        # The Pydantic validator `validate_batch_shape` will catch the incorrect length before `validate_input_data`
-        # So, the test should target the situation where the *names* are missing, not the count.
-        # But given `BatchPredictionInput` only takes `List[List[float]]`, we cannot directly test named column missing.
-        # We can only test cases where the number of features is different, which Pydantic handles.
-        # The `validate_input_data` logic applies *after* Pydantic validation of the list length.
-
-        # Re-thinking this test: `validate_input_data` is applied to a DataFrame constructed with `ALL_RAW_FEATURES` as columns.
-        # If the input `features` in `BatchPredictionInput` has a different number of columns than `ALL_RAW_FEATURES`,
-        # `pd.DataFrame(input_data.features, columns=ALL_RAW_FEATURES)` will raise a ValueError.
-        # This ValueError from pandas will be caught by the API and returned as a 500 or 400.
-
-        # Let's test the case where the *number* of features is correct for Pydantic,
-        # but the *names* implied by the order are "wrong" (which we can't really test directly here).
-        # The primary test for `validate_input_data` is that it correctly identifies missing/extra columns
-        # when a DataFrame *with names* is passed.
-        # Since `predict_batch` endpoint constructs a DataFrame from `List[List[float]]` using `ALL_RAW_FEATURES`
-        # as column names, the only way for columns to be "missing" from this constructed DataFrame
-        # is if `ALL_RAW_FEATURES` itself is empty or if the input `List[List[float]]` has a different
-        # number of elements than `len(ALL_RAW_FEATURES)`.
-        # The latter is already caught by `validate_batch_shape`.
-
-        # So, to test `validate_input_data`'s missing column logic for batch, we need to create a scenario
-        # where the input DataFrame *could* have been missing columns, but this endpoint won't allow that
-        # easily due to Pydantic.
-
-        # The `validate_input_data` function itself is tested in a unit test for `file_validation.py` ideally.
-        # Here, we are testing the API integration.
-        # Given `predict_batch` creates `pd.DataFrame(input_data.features, columns=ALL_RAW_FEATURES)`,
-        # it will immediately fail if `len(input_data.features[0]) != len(ALL_RAW_FEATURES)`.
-        # This means `validate_input_data`'s "missing columns" `ValueError` will likely not be hit
-        # because the DataFrame construction will fail first, or `validate_batch_shape` will fail.
-
-        # Therefore, this test should focus on *extra* columns if the API allowed named columns,
-        # or the general error handling if `validate_input_data` raises an error.
-
-        # Let's adjust this test to correctly reflect what can happen.
-        # `validate_batch_shape` ensures `len(features)` is `EXPECTED_FEATURES`.
-        # `validate_input_data` is then called on `pd.DataFrame(input_data.features, columns=ALL_RAW_FEATURES)`.
-        # If `ALL_RAW_FEATURES` itself contains a mismatch, that would be a config error.
-
-        # The only way to trigger `validate_input_data`'s `ValueError` for missing columns
-        # *after* `validate_batch_shape` passes, is if `ALL_RAW_FEATURES` changes dynamically (which it shouldn't)
-        # or if `validate_input_data` had a different `required_columns` definition.
-
-        # Let's test the extra columns scenario, as that's something `validate_input_data` handles by removing them.
-        # But even then, the API input Pydantic model doesn't allow "extra named columns" directly.
-        # It only takes `List[List[float]]`.
-
-        # The `validate_input_data` function is primarily designed for the `/batch_predict_from_csv` endpoint
-        # where actual CSV files with named columns are uploaded.
-        # The current `/predict/batch` endpoint doesn't allow for arbitrary column names.
-
-        # Given the current structure, directly testing the "missing/extra columns" logic of
-        # `validate_input_data` via `/predict/batch` is difficult because the `BatchPredictionInput` Pydantic model
-        # enforces a strict `List[List[float]]` where the *order* implies the features, and the length is validated.
-        # The `pd.DataFrame(input_data.features, columns=ALL_RAW_FEATURES)` constructor itself assumes a 1:1 mapping by order.
-
-        # Therefore, for this specific API endpoint (`/predict/batch`), the `validate_input_data`
-        # function will mainly ensure that the column names are converted to strings and that no
-        # unexpected pandas errors occur during DataFrame construction or manipulation.
-
-        # I will add a test that focuses on a scenario that *could* lead to a ValueError
-        # in `validate_input_data` if the `BatchPredictionInput` were different, but
-        # now, it will primarily test that the API handles an underlying DataFrame construction error
-        # correctly.
-
-        # Given the `validate_batch_shape` validator ensures that the length of the inner lists
-        # matches `EXPECTED_FEATURES`, and `ALL_RAW_FEATURES` has `EXPECTED_FEATURES` items,
-        # the `ValueError` for "missing required columns" from `validate_input_data` will not be hit here
-        # unless `ALL_RAW_FEATURES` itself somehow becomes inconsistent with `EXPECTED_FEATURES` or the model.
-
-        # Instead, I will add a test that ensures the `predict_batch` endpoint still works as expected
-        # with valid input after the `validate_input_data` integration, and perhaps a test for an edge case
-        # where `validate_input_data` might still catch something (e.g., if `ALL_RAW_FEATURES` was empty, though unlikely).
-
-        # For now, I will add a test for valid input to ensure nothing broke, and a test for malformed input
-        # that *would* lead to a pandas error during DataFrame construction, which `validate_input_data`
-        # would then handle (or the API itself would catch).
-
-        # Given the previous context and that Pydantic's `validate_batch_shape`
-        # ensures the correct number of features, `validate_input_data`'s "missing columns"
-        # check will not be triggered directly by the `/predict/batch` endpoint unless
-        # `len(ALL_RAW_FEATURES)` is different from `EXPECTED_FEATURES`.
-        # However, "extra columns" *could* theoretically be passed if the Pydantic model allowed for
-        # dictionaries with arbitrary keys, which it doesn't for `List[List[float]]`.
-
-        # I will add a test that simply validates a successful batch prediction after the integration
-        # to ensure that the new `validate_input_data` step doesn't break existing functionality.
-        # The explicit testing of `validate_input_data`'s missing/extra column logic is best done
-        # via unit tests for `file_validation.py` itself, or via an API endpoint that takes a more
-        # flexible input (like `batch_predict_from_csv`).
-
-        # Re-adding a test to confirm valid batch prediction still works after changes
-        # This will indirectly test that `validate_input_data` doesn't throw unexpected errors
-        # for valid input.
+        application_df = pd.DataFrame([row_data], columns=df_cols)
+        mock_files = create_mock_batch_files(application_df)
+        
+        response = test_app_client.post("/batch/predict", files=mock_files)
+        assert response.status_code == 400
+        assert "Range validation failed" in response.json()["detail"]["error"]
+        assert "AMT_CREDIT" in response.json()["detail"]["error"]
+        assert "above max" in response.json()["detail"]["error"]
 
     @pytest.mark.skip(reason="Batch endpoint requires CSV payload")
-    def test_batch_predict_valid_input_after_validation_integration(self):
+    def test_batch_predict_valid_input_after_validation_integration(self, test_app_client):
         """Test batch prediction with valid input after validate_input_data integration."""
         # Generate 2 random feature vectors
-        features = [np.random.random(189).tolist() for _ in range(2)]
+        features = [np.random.random(len(ALL_MODEL_FEATURES_TEST)).tolist() for _ in range(2)] # Use len(ALL_MODEL_FEATURES_TEST)
         client_ids = ["TEST_004", "TEST_005"]
 
         data = {
@@ -363,7 +458,7 @@ class TestBatchPredictionEndpoint:
             "client_ids": client_ids
         }
 
-        response = client.post("/batch/predict", json=data)
+        response = test_app_client.post("/batch/predict", json=data)
         assert response.status_code in [200, 503] # Model might not be loaded yet
 
         if response.status_code == 200:
@@ -378,14 +473,12 @@ class TestBatchPredictionEndpoint:
             assert isinstance(result["predictions"][0]["probability"], float)
 
 
-
-
 class TestModelInfoEndpoint:
     """Tests for /model/info endpoint."""
 
-    def test_model_info_success(self):
+    def test_model_info_success(self, test_app_client):
         """Test model info returns successfully."""
-        response = client.get("/model/info")
+        response = test_app_client.get("/model/info")
         # Endpoint is commented out in app.py - allow 404
         assert response.status_code in [200, 404, 503]
 
@@ -396,9 +489,9 @@ class TestModelInfoEndpoint:
             assert "model_type" in data
             assert "capabilities" in data
 
-    def test_model_info_capabilities(self):
+    def test_model_info_capabilities(self, test_app_client):
         """Test model capabilities are documented."""
-        response = client.get("/model/info")
+        response = test_app_client.get("/model/info")
         # Endpoint may not exist (404) or model not loaded (503)
         if response.status_code == 200:
             data = response.json()
@@ -412,25 +505,25 @@ class TestModelInfoEndpoint:
 class TestErrorHandling:
     """Tests for error handling."""
 
-    def test_invalid_endpoint(self):
+    def test_invalid_endpoint(self, test_app_client):
         """Test accessing non-existent endpoint returns 404."""
-        response = client.get("/nonexistent")
+        response = test_app_client.get("/nonexistent")
         assert response.status_code == 404
 
-    def test_invalid_method(self):
+    def test_invalid_method(self, test_app_client):
         """Test using wrong HTTP method."""
         # GET on endpoint that requires POST
-        response = client.get("/predict")
+        response = test_app_client.get("/predict")
         assert response.status_code == 405  # Method not allowed
 
-    def test_missing_request_body(self):
+    def test_missing_request_body(self, test_app_client):
         """Test POST without body."""
-        response = client.post("/predict")
+        response = test_app_client.post("/predict")
         assert response.status_code == 422  # Validation error
 
-    def test_malformed_json(self):
+    def test_malformed_json(self, test_app_client):
         """Test malformed JSON request."""
-        response = client.post(
+        response = test_app_client.post(
             "/predict",
             data="invalid json",  # Not valid JSON
             headers={"Content-Type": "application/json"}
@@ -441,14 +534,14 @@ class TestErrorHandling:
 class TestRiskLevelClassification:
     """Tests for risk level classification logic."""
 
-    def test_risk_levels_coverage(self):
+    def test_risk_levels_coverage(self, test_app_client):
         """Test that all risk levels can be produced."""
         # This is a behavioral test - actual probabilities depend on model
 
-        features = np.random.random(189).tolist()
+        features = np.random.random(len(ALL_MODEL_FEATURES_TEST)).tolist() # Use len(ALL_MODEL_FEATURES_TEST)
         data = {"features": features}
 
-        response = client.post("/predict", json=data)
+        response = test_app_client.post("/predict", json=data)
 
         if response.status_code == 200:
             result = response.json()
@@ -459,9 +552,9 @@ class TestRiskLevelClassification:
 class TestCORS:
     """Tests for CORS configuration."""
 
-    def test_cors_headers_present(self):
+    def test_cors_headers_present(self, test_app_client):
         """Test CORS headers are present in response."""
-        response = client.options("/predict")
+        response = test_app_client.options("/predict")
 
         # CORS headers should be present
         headers = response.headers
@@ -472,12 +565,12 @@ class TestCORS:
 class TestResponseValidation:
     """Tests for response validation."""
 
-    def test_prediction_response_schema(self):
+    def test_prediction_response_schema(self, test_app_client):
         """Test prediction response matches expected schema."""
-        features = np.random.random(189).tolist()
+        features = np.random.random(len(ALL_MODEL_FEATURES_TEST)).tolist() # Use len(ALL_MODEL_FEATURES_TEST)
         data = {"features": features, "client_id": "TEST"}
 
-        response = client.post("/predict", json=data)
+        response = test_app_client.post("/predict", json=data)
 
         if response.status_code == 200:
             result = response.json()
