@@ -99,6 +99,7 @@ class TestBatchPredictEndpoint:
 
 
     @patch('api.batch_predictions.validate_all_files')
+    @patch('api.app.model', MagicMock())  # Add this patch
     def test_predict_batch_validation_error(self, mock_validate, client):
         mock_validate.side_effect = Exception("Validation failed")
         
@@ -112,6 +113,7 @@ class TestBatchPredictEndpoint:
     @patch('api.batch_predictions.validate_all_files')
     @patch('api.batch_predictions.get_preprocessing_pipeline')
     @patch('api.batch_predictions.crud')
+    @patch('api.app.model', MagicMock())  # Add this patch
     def test_predict_batch_preprocessing_error(self, mock_crud, mock_pipeline_getter, mock_validate, client, mock_db_session):
         # Mock validation success
         mock_validate.return_value = {'application.csv': pd.DataFrame({'SK_ID_CURR': [100001]})}
@@ -153,7 +155,8 @@ class TestBatchPredictEndpoint:
         mock_model = MagicMock()
         mock_model.predict.side_effect = Exception("Model error")
         
-        with patch('pickle.load', return_value=mock_model):
+        # Patch api.app.model directly within the test to use the specific mock_model
+        with patch('api.app.model', mock_model):
             with patch('pathlib.Path.exists', return_value=True):
                 files = create_valid_files()
                 response = client.post("/batch/predict", files=files)

@@ -18,8 +18,7 @@ print("API PERFORMANCE PROFILING")
 print("="*80)
 
 # Load model
-print("
-Loading model...")
+print("Loading model...")
 with open(PROJECT_ROOT / "models" / "production_model.pkl", 'rb') as f:
     model = pickle.load(f)
 
@@ -31,8 +30,7 @@ sample = X_test.sample(min(100, len(X_test)))
 print(f"Test sample: {len(sample)} applications")
 
 # Profile prediction time
-print("
-" + "="*80)
+print("="*80)
 print("PREDICTION PERFORMANCE")
 print("="*80)
 
@@ -47,24 +45,20 @@ def benchmark_predictions(X, n_iterations=10):
     
     return times
 
-print(f"
-Benchmarking {len(sample)} predictions (10 iterations)...")
+print(f"Benchmarking {len(sample)} predictions (10 iterations)...")
 times = benchmark_predictions(sample)
 
-print(f"
-Results:")
+print(f"Results:")
 print(f"  Min time: {min(times):.2f} ms")
 print(f"  Max time: {max(times):.2f} ms")
 print(f"  Avg time: {np.mean(times):.2f} ms")
 print(f"  Median time: {np.median(times):.2f} ms")
 print(f"  Std dev: {np.std(times):.2f} ms")
-print(f"
-  Time per application: {np.mean(times)/len(sample):.2f} ms")
+print(f"  Time per application: {np.mean(times)/len(sample):.2f} ms")
 print(f"  Throughput: {len(sample)/(np.mean(times)/1000):.1f} predictions/second")
 
 # Profile with cProfile
-print("
-" + "="*80)
+print("="*80)
 print("DETAILED PROFILING (cProfile)")
 print("="*80)
 
@@ -91,12 +85,10 @@ with open(profile_path, 'w') as f:
     ps = pstats.Stats(profiler, stream=f).sort_stats('cumulative')
     ps.print_stats()
 
-print(f"
-Full profile saved to: {profile_path}")
+print(f"Full profile saved to: {profile_path}")
 
 # Recommendations
-print("
-" + "="*80)
+print("="*80)
 print("OPTIMIZATION RECOMMENDATIONS")
 print("="*80)
 
@@ -112,6 +104,5 @@ else:
     print("    - Reduce number of features")
     print("    - Use faster hardware")
 
-print(f"
-  Current: {avg_ms:.2f} ms average")
+print(f"  Current: {avg_ms:.2f} ms average")
 print(f"  Target: < 100 ms for good user experience")

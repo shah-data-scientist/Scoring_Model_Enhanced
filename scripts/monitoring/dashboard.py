@@ -18,8 +18,7 @@ print("="*80)
 # Read predictions log
 pred_log = LOGS_DIR / "predictions.jsonl"
 if not pred_log.exists():
-    print("
-No prediction logs found. API needs to run first.")
+    print("No prediction logs found. API needs to run first.")
     exit(0)
 
 # Parse logs
@@ -41,15 +40,13 @@ with open(pred_log, "r") as f:
         except:
             continue
 
-print(f"
-Logs Summary:")
+print(f"Logs Summary:")
 print(f"  Total predictions logged: {len(predictions)}")
 print(f"  Total batches: {len(batches)}")
 print(f"  Total errors: {len(errors)}")
 
 if batches:
-    print("
-" + "="*80)
+    print("="*80)
     print("BATCH PREDICTIONS SUMMARY")
     print("="*80)
     
@@ -66,8 +63,7 @@ if batches:
         for level, count in b.get("risk_distribution", {}).items():
             all_risk_dist[level] += count
     
-    print(f"
-  Risk Distribution:")
+    print(f"Risk Distribution:")
     total = sum(all_risk_dist.values())
     for level in ["LOW", "MEDIUM", "HIGH"]:
         count = all_risk_dist.get(level, 0)
@@ -82,15 +78,13 @@ if batches:
             all_probs.append(stats.get("avg", 0))
     
     if all_probs:
-        print(f"
-  Probability Statistics:")
+        print(f"Probability Statistics:")
         print(f"    Min avg: {min(all_probs):.4f}")
         print(f"    Max avg: {max(all_probs):.4f}")
         print(f"    Overall avg: {sum(all_probs)/len(all_probs):.4f}")
 
 if errors:
-    print("
-" + "="*80)
+    print("="*80)
     print("ERRORS SUMMARY")
     print("="*80)
     
@@ -100,5 +94,4 @@ if errors:
     for error_type, count in error_types.most_common(5):
         print(f"    {error_type}: {count}")
 
-print("
-" + "="*80)
+print("="*80)
