@@ -278,6 +278,12 @@ async def load_model():
                 print(f"[OK] Model loaded from fallback file")
                 print(f"  Type: {model_metadata['type']}, Features: {model_metadata['features']}")
 
+    except Exception as e: # This is the missing except block
+        print(f"ERROR: Failed to load model: {e}")
+        print("API will start but predictions will fail until model is loaded.")
+        model = None
+        model_metadata = {'error': str(e)}
+
     # Initialize preprocessing pipeline (loads precomputed features)
     print("\nInitializing preprocessing pipeline...")
     try:
