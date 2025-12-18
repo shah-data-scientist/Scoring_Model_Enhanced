@@ -47,6 +47,38 @@ class TestPreprocessingPipeline:
         # Medians might be loaded or None
         assert hasattr(pipeline, 'medians')
 
+    def test_pipeline_return_unscaled(self):
+        """Test that pipeline can return unscaled features."""
+        pipeline = PreprocessingPipeline(use_precomputed=False)
+        df_app = pd.DataFrame({
+            'SK_ID_CURR': [100001],
+            'AMT_INCOME_TOTAL': [150000],
+            'AMT_CREDIT': [300000],
+            'AMT_ANNUITY': [15000],
+            'AMT_GOODS_PRICE': [300000],
+            'DAYS_BIRTH': [-10000],
+            'DAYS_EMPLOYED': [-2000],
+            'CNT_CHILDREN': [0]
+        })
+        
+        # Test 2-tuple return (default)
+        result = pipeline.process({'application.csv': df_app}, return_unscaled=False)
+        assert len(result) == 2
+        assert isinstance(result[0], pd.DataFrame)
+        assert isinstance(result[1], pd.Series)
+        
+        # Test 3-tuple return (unscaled)
+        result_unscaled = pipeline.process({'application.csv': df_app}, return_unscaled=True)
+        assert len(result_unscaled) == 3
+        assert isinstance(result_unscaled[0], pd.DataFrame) # scaled
+        assert isinstance(result_unscaled[1], pd.DataFrame) # unscaled
+        assert isinstance(result_unscaled[2], pd.Series) # ids
+        
+        # Unscaled should have real values, scaled should be different
+        # Note: only if scaler is loaded
+        if pipeline.scaler is not None:
+            assert not result_unscaled[0].equals(result_unscaled[1])
+
 
 class TestCleanColumnNames:
     """Test column name cleaning."""

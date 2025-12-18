@@ -11,6 +11,8 @@ import base64
 import io
 import sys
 import zipfile
+import json
+import textwrap
 from datetime import datetime
 from pathlib import Path
 import logging
@@ -19,6 +21,9 @@ import numpy as np
 import pandas as pd
 import requests
 import streamlit as st
+import matplotlib.pyplot as plt
+import shap
+from scipy.special import expit
 
 PROJECT_ROOT = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
@@ -865,7 +870,13 @@ def generate_detailed_html_report(predictions: list, batch_name: str) -> str:
         # Generate waterfall plot for SHAP values
         if shap_values:
             expected_val = pred.get('expected_value', 0)
-            html += generate_waterfall_html(shap_values, top_features, expected_val)
+            html += generate_waterfall_html(
+                shap_values=shap_values, 
+                client_id=sk_id, 
+                probability=probability, 
+                top_features=top_features, 
+                expected_value=expected_val
+            )
         else:
             html += """
                 <div class="waterfall-container">
@@ -912,142 +923,135 @@ def _format_value(value) -> str:
     return str(value)
 
 
-def generate_waterfall_html(shap_values: dict, top_features: list | None = None, expected_value: float = 0) -> str:
-    """Generate a TRUE cumulative waterfall HTML chart with logit-to-prob transformation if needed."""
+def get_feature_source_short(name):
+    """Categorize features by their source (RW, PL, AG, DM)."""
+    # Load raw features from config
+    raw_features_path = PROJECT_ROOT / "config" / "all_raw_features.json"
+    raw_features = []
+    if raw_features_path.exists():
+        with open(raw_features_path) as f:
+            raw_data = json.load(f)
+            raw_features = raw_data.get("application.csv", [])
     
-    # Sigmoid function for probability conversion
-    def sigmoid(x):
-        return 1 / (1 + np.exp(-x))
-
-    # Determine if we are in log-odds space (logits) or probability space
-    # If base value > 1 or < -1, it's definitely logits.
-    # If expected_value is e.g. 0.1, it could be either (but probability 10% is common).
-    # We check if the sum of base + shap is outside [0, 1]
-    is_logit = False
-    if expected_value > 1 or expected_value < 0 or abs(sum(shap_values.values())) > 1:
-        is_logit = True
-
-    # Build enriched feature list
-    enriched = []
-    if top_features:
-        for item in top_features:
-            enriched.append({
-                'feature': item.get('feature'),
-                'shap_value': item.get('shap_value', 0),
-                'value': item.get('value')
-            })
+    agg_prefixes = ["BUREAU_", "PREV_", "POS_", "CC_", "INST_"]
+    if name in raw_features:
+        return "RW"
+    elif name.startswith("POLY_"):
+        return "PL"
+    elif any(name.startswith(pre) for pre in agg_prefixes):
+        return "AG"
     else:
-        for feature, value in shap_values.items():
-            enriched.append({
-                'feature': feature,
-                'shap_value': value,
-                'value': None
-            })
+        return "DM"
 
-    # Sort and cap
-    enriched = sorted(enriched, key=lambda x: abs(x['shap_value']), reverse=True)[:10]
+def generate_waterfall_html(shap_values: dict, client_id: int, probability: float, top_features: list | None = None, expected_value: float = 0) -> str:
+    """Generate a TRUE cumulative matplotlib SHAP waterfall plot and return it as an HTML image tag."""
     
-    # Calculate cumulative points for scaling
-    # If logit, we calculate points in probability space for the plot
-    if is_logit:
-        current_logit = expected_value
-        points = [sigmoid(current_logit)]
-        for item in enriched:
-            current_logit += item['shap_value']
-            points.append(sigmoid(current_logit))
+    if not shap_values:
+        return '<div class="waterfall-container"><p>SHAP values not available.</p></div>'
+
+    try:
+        # 1. Prepare Data
+        # Sort features by absolute SHAP value
+        sorted_items = sorted(shap_values.items(), key=lambda x: abs(x[1]), reverse=True)
+        max_display = 10
+        # We take the top 10 and group the rest into "Other"
+        top_items_list = sorted_items[:max_display]
+        other_items_list = sorted_items[max_display:]
         
-        top_set = {e['feature'] for e in enriched}
-        others_sum = sum(v for k, v in shap_values.items() if k not in top_set)
-        if others_sum != 0:
-            current_logit += others_sum
-            points.append(sigmoid(current_logit))
-    else:
+        # Calculate "Other" sum
+        other_sum = sum(x[1] for x in other_items_list)
+        
+        # Final list for plotting: [Other, Top10, Top9, ..., Top1]
+        plot_items = []
+        if other_items_list:
+            plot_items.append(("Sum of other features", other_sum))
+        plot_items.extend(top_items_list[::-1]) # Reverse so Top1 is at the top
+        
+        # 2. Calculate Cumulative Steps
+        # In logit space (which is what SHAP values are usually in for Tree models)
         current_val = expected_value
-        points = [current_val]
-        for item in enriched:
-            current_val += item['shap_value']
-            points.append(current_val)
-        
-        top_set = {e['feature'] for e in enriched}
-        others_sum = sum(v for k, v in shap_values.items() if k not in top_set)
-        if others_sum != 0:
-            current_val += others_sum
-            points.append(current_val)
-        
-    min_p, max_p = min(points), max(points)
-    total_range = max(abs(max_p - min_p), 0.0001)
-    
-    padding = total_range * 0.1
-    min_p -= padding
-    max_p += padding
-    total_range = max_p - min_p
+        steps = []
+        for name, val in plot_items:
+            start = current_val
+            end = current_val + val
+            steps.append((start, end))
+            current_val = end
 
-    html = """
-        <div class="waterfall-container">
-            <div class="waterfall-title">Cumulative Waterfall (SHAP)</div>
-            <div style="margin-top: 15px;">
-    """
-
-    # Add Base Value row
-    base_val_display = sigmoid(expected_value) if is_logit else expected_value
-    base_pos = (base_val_display - min_p) / total_range * 100
-    html += f"""
-        <div class="waterfall-bar" style="background: #eee; border-radius: 4px; margin-bottom: 12px; padding: 5px;">
-            <div class="waterfall-label"><strong>[Base Probability]</strong></div>
-            <div class="waterfall-bar-container" style="background: transparent;">
-                <div style="position: absolute; left: 0; width: {base_pos}%; height: 100%; border-right: 2px solid #666;"></div>
-            </div>
-            <div class="waterfall-value">{base_val_display:.2%}</div>
-        </div>
-    """
-
-    # Running sum for positioning
-    running_total_logit = expected_value if is_logit else None
-    running_total_prob = expected_value if not is_logit else sigmoid(expected_value)
-    
-    for item in enriched:
-        feature = item['feature']
-        val = item['shap_value']
+        # 3. Plotting
+        fig = plt.figure(figsize=(12, 10))
+        ax = fig.add_subplot(111)
+        plt.subplots_adjust(left=0.45) 
         
-        start_p = (running_total_prob - min_p) / total_range * 100
+        y_pos = np.arange(len(plot_items))
         
-        if is_logit:
-            running_total_logit += val
-            running_total_prob = sigmoid(running_total_logit)
-            # For display, show probability impact (approx)
-            display_impact = sigmoid(running_total_logit) - sigmoid(running_total_logit - val)
-        else:
-            running_total_prob += val
-            display_impact = val
+        # Extract RVs for labeling
+        rv_map = {item['feature']: item.get('rv') for item in top_features} if top_features else {}
+
+        for i, (name, val) in enumerate(plot_items):
+            start, end = steps[i]
+            color = '#ff0051' if val > 0 else '#008bfb'
             
-        end_p = (running_total_prob - min_p) / total_range * 100
-        
-        left = min(start_p, end_p)
-        width = abs(start_p - end_p)
-        
-        bar_class = "waterfall-bar-positive" if display_impact > 0 else "waterfall-bar-negative"
-        value_class = "positive" if display_impact > 0 else "negative"
+            # Draw the cumulative bar
+            ax.barh(i, val, left=start, color=color, height=0.7)
+            
+            # Label logic
+            is_other = name == "Sum of other features"
+            short_type = get_feature_source_short(name) if not is_other else "OT"
+            rv = rv_map.get(name)
+            rv_str = f"{rv:.2f}" if rv is not None else "NA"
+            
+            clean_name = name.replace("_", " ")
+            wrapped_name = "\n".join(textwrap.wrap(clean_name, width=28))
+            
+            # Bold Feature Name
+            ax.text(min(steps[0][0], start, end) - 0.1, i, wrapped_name, 
+                    transform=ax.get_yaxis_transform(), ha='right', va='center', 
+                    fontweight='bold', fontsize=10)
+            
+            # Mid-aligned metadata (between this and previous)
+            if i > 0:
+                y_mid = i - 0.5
+                meta_label = f"[{short_type}] RV={rv_str}" if not is_other else "[OT]"
+                ax.text(min(steps[0][0], start, end) - 0.1, y_mid, meta_label, 
+                        transform=ax.get_yaxis_transform(), ha='right', va='center', 
+                        fontsize=8, color='#666666', fontstyle='italic')
 
-        html += f"""
-            <div class="waterfall-bar">
-                <div class="waterfall-label">{feature.replace('_', ' ')}</div>
-                <div class="waterfall-bar-container">
-                    <div class="waterfall-bar-fill {bar_class}" style="left: {left}%; width: {width}%;"></div>
+        # Add Vertical Reference Lines for Start (E[f(x)]) and End (f(x))
+        ax.axvline(expected_value, color='black', lw=1, alpha=0.3, ls='--')
+        ax.axvline(current_val, color='black', lw=1, alpha=0.3, ls='--')
+        
+        # Cleanup
+        ax.spines['top'].set_visible(False)
+        ax.spines['right'].set_visible(False)
+        ax.spines['left'].set_visible(False)
+        ax.set_xlabel("Impact on Model Score (Log-odds)", fontsize=10)
+        
+        plt.title(f"Feature Explanation - Client {client_id}\nPredicted Probability: {probability:.1%}", 
+                  fontsize=16, pad=30, fontweight='bold')
+        
+        buf = io.BytesIO()
+        plt.savefig(buf, format='png', bbox_inches='tight', dpi=120)
+        plt.close(fig)
+        data = base64.b64encode(buf.getbuffer()).decode("ascii")
+        
+        base_prob = expit(expected_value)
+        return f"""
+            <div class="waterfall-container" style="text-align: center; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.05);">
+                <img src="data:image/png;base64,{data}" style="max-width: 100%; height: auto;" />
+                <div style="font-size: 0.8em; color: #888; margin-top: 10px; font-style: italic;">
+                    Types: RW=Raw, AG=Aggregate, PL=Polynomial, DM=Domain | Base Prob: {base_prob:.1%}
                 </div>
-                <div class="waterfall-value {value_class}">{display_impact:+.2%}</div>
             </div>
         """
-
-    # Final Prediction row
-    html += f"""
-        <div class="waterfall-bar" style="border-top: 2px solid #333; margin-top: 10px; padding-top: 10px;">
-            <div class="waterfall-label"><strong>Final Probability</strong></div>
-            <div class="waterfall-bar-container" style="background: transparent;">
-                <div style="position: absolute; left: 0; width: {(running_total_prob - min_p)/total_range*100}%; height: 100%; background: #1f77b4; opacity: 0.3; border-radius: 4px;"></div>
-            </div>
-            <div class="waterfall-value" style="font-weight: bold; color: #1f77b4;">{running_total_prob:.2%}</div>
-        </div>
-    """
+    except Exception as e:
+        logger.error(f"Error generating waterfall plot: {e}")
+        return f'<div class="waterfall-container"><p>Error generating plot: {str(e)}</p></div>'
+    except Exception as e:
+        logger.error(f"Error generating waterfall plot: {e}")
+        return f'<div class="waterfall-container"><p>Error generating plot: {str(e)}</p></div>'
+    except Exception as e:
+        logger.error(f"Error generating waterfall plot: {e}")
+        return f'<div class="waterfall-container"><p>Error generating plot: {str(e)}</p></div>'
 
     html += "</div></div>"
     return html

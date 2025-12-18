@@ -358,8 +358,9 @@ class PreprocessingPipeline:
     def process(
         self,
         dataframes: dict[str, pd.DataFrame],
-        keep_sk_id: bool = True
-    ) -> tuple[pd.DataFrame, pd.Series]:
+        keep_sk_id: bool = True,
+        return_unscaled: bool = False
+    ) -> tuple[pd.DataFrame, pd.Series] | tuple[pd.DataFrame, pd.DataFrame, pd.Series]:
         """Full preprocessing pipeline from raw CSVs to model-ready features.
 
         Uses precomputed features for known applications (from training data)
@@ -368,9 +369,11 @@ class PreprocessingPipeline:
         Args:
             dataframes: Dictionary of {filename: DataFrame}
             keep_sk_id: Whether to keep SK_ID_CURR in output
+            return_unscaled: If True, also returns the unscaled features (RV)
 
         Returns:
-            Tuple of (features_df, sk_id_curr_series)
+            If return_unscaled is False: Tuple of (features_df, sk_id_curr_series)
+            If return_unscaled is True: Tuple of (features_df, unscaled_df, sk_id_curr_series)
 
         """
         print("\n" + "="*80)
@@ -459,9 +462,14 @@ class PreprocessingPipeline:
                                 ]
 
                     # Process unknown applications
-                    unknown_features = self._process_full_pipeline(unknown_dataframes, keep_sk_id=True)
+                    if return_unscaled:
+                        unknown_features, unknown_unscaled = self._process_full_pipeline(unknown_dataframes, keep_sk_id=True, return_unscaled=True)
+                    else:
+                        unknown_features = self._process_full_pipeline(unknown_dataframes, keep_sk_id=True)
+                        unknown_unscaled = None
                 else:
                     unknown_features = None
+                    unknown_unscaled = None
 
                 # Combine known and unknown features
                 if known_features is not None and unknown_features is not None:
@@ -472,15 +480,27 @@ class PreprocessingPipeline:
                         unknown_features['SK_ID_CURR'] = sk_id_curr[unknown_mask].values
 
                     features_df = pd.concat([known_features, unknown_features], axis=0, ignore_index=True)
+                    
+                    if return_unscaled and unknown_unscaled is not None:
+                        # For precomputed, MV=RV (approximately)
+                        unscaled_df = pd.concat([known_features, unknown_unscaled], axis=0, ignore_index=True)
+                    else:
+                        unscaled_df = None
 
                     # Reorder to match original application order
                     id_to_idx = {app_id: idx for idx, app_id in enumerate(sk_id_curr)}
                     features_df['_order'] = features_df['SK_ID_CURR'].map(id_to_idx)
                     features_df = features_df.sort_values('_order').drop(columns=['_order']).reset_index(drop=True)
+                    
+                    if unscaled_df is not None:
+                        unscaled_df['_order'] = unscaled_df['SK_ID_CURR'].map(id_to_idx)
+                        unscaled_df = unscaled_df.sort_values('_order').drop(columns=['_order']).reset_index(drop=True)
                 elif known_features is not None:
                     features_df = known_features
+                    unscaled_df = known_features if return_unscaled else None
                 else:
                     features_df = unknown_features
+                    unscaled_df = unknown_unscaled if return_unscaled else None
 
                 print("\n" + "="*80)
                 print(f"PREPROCESSING COMPLETE: {len(features_df)} rows x {len([c for c in features_df.columns if c != 'SK_ID_CURR'])} features")
@@ -488,34 +508,48 @@ class PreprocessingPipeline:
                 print(f"  - {unknown_mask.sum()} from full pipeline")
                 print("="*80 + "\n")
 
-                if not keep_sk_id and 'SK_ID_CURR' in features_df.columns:
-                    features_df = features_df.drop(columns=['SK_ID_CURR'])
+                if not keep_sk_id:
+                    if 'SK_ID_CURR' in features_df.columns:
+                        features_df = features_df.drop(columns=['SK_ID_CURR'])
+                    if unscaled_df is not None and 'SK_ID_CURR' in unscaled_df.columns:
+                        unscaled_df = unscaled_df.drop(columns=['SK_ID_CURR'])
 
+                if return_unscaled:
+                    return features_df, unscaled_df, sk_id_curr
                 return features_df, sk_id_curr
             print("[INFO] No applications found in precomputed features. Processing all through full pipeline.\n")
 
         # If no precomputed features available or no matches, process all through full pipeline
-        features_df = self._process_full_pipeline(dataframes, keep_sk_id)
+        if return_unscaled:
+            features_df, unscaled_df = self._process_full_pipeline(dataframes, keep_sk_id, return_unscaled=True)
+        else:
+            features_df = self._process_full_pipeline(dataframes, keep_sk_id)
+            unscaled_df = None
 
         print("\n" + "="*80)
         print(f"PREPROCESSING COMPLETE: {len(features_df)} rows x {len([c for c in features_df.columns if c != 'SK_ID_CURR'])} features")
         print("="*80 + "\n")
 
+        if return_unscaled:
+            return features_df, unscaled_df, sk_id_curr
         return features_df, sk_id_curr
 
     def _process_full_pipeline(
         self,
         dataframes: dict[str, pd.DataFrame],
-        keep_sk_id: bool = True
-    ) -> pd.DataFrame:
+        keep_sk_id: bool = True,
+        return_unscaled: bool = False
+    ) -> pd.DataFrame | tuple[pd.DataFrame, pd.DataFrame]:
         """Process applications through the full preprocessing pipeline.
 
         Args:
             dataframes: Dictionary of {filename: DataFrame}
             keep_sk_id: Whether to keep SK_ID_CURR in output
+            return_unscaled: Whether to return features before scaling
 
         Returns:
-            DataFrame with processed features
+            If return_unscaled is False: DataFrame with processed features
+            If return_unscaled is True: Tuple of (processed_df, unscaled_df)
 
         """
         application_df = dataframes.get('application.csv')
@@ -547,7 +581,7 @@ class PreprocessingPipeline:
         print("\nStep 2: Creating engineered features")
         df = self.create_engineered_features(df)
 
-        # Step 3: Encode categoricals and clean names
+        # Step 3: Encoding categorical features
         print("\nStep 3: Encoding categorical features")
         df = self.encode_and_clean(df)
 
@@ -558,6 +592,9 @@ class PreprocessingPipeline:
         # Step 5: Align features with model expectations
         print("\nStep 5: Aligning features with model")
         df = self.align_features(df)
+        
+        # Capture unscaled features (Real Values)
+        unscaled_df = df.copy() if return_unscaled else None
 
         # Step 6: Scale features
         if self.scaler is not None:
@@ -593,5 +630,11 @@ class PreprocessingPipeline:
             features_df = df.drop(columns=['SK_ID_CURR'])
         else:
             features_df = df
+            
+        if return_unscaled:
+            # Handle SK_ID_CURR for unscaled_df
+            if not keep_sk_id and 'SK_ID_CURR' in unscaled_df.columns:
+                unscaled_df = unscaled_df.drop(columns=['SK_ID_CURR'])
+            return features_df, unscaled_df
 
         return features_df

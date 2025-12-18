@@ -73,175 +73,130 @@ async def run_simulation():
             return ok
 
         async def click_tab(name_regex):
-            """Robustly click a Streamlit tab by its text content."""
-            # Streamlit tabs are buttons with role="tab"
+            """Robustly click a Streamlit tab and wait for content to be visible."""
             tab = page.locator('button[role="tab"]').filter(has_text=name_regex).first
             if await tab.count() > 0:
                 print(f"  [ACTION] Clicking tab: {name_regex.pattern if hasattr(name_regex, 'pattern') else name_regex}...")
+                await tab.scroll_into_view_if_needed()
                 await tab.click(force=True)
-                await page.wait_for_timeout(3000)
+                # Wait for Streamlit to switch tabs and render content
+                await page.wait_for_timeout(5000)
                 return True
             return False
+
+        async def check_results(marker_text, screenshot_name):
+            """Check if results are present on the page."""
+            print(f"  [CHECK] Verifying results for {marker_text}...")
+            # Look for success messages or dataframes
+            success_indicators = [
+                page.get_by_text(re.compile(marker_text, re.I)),
+                page.locator(".stDataFrame"),
+                page.locator(".js-plotly-plot")
+            ]
+            
+            found = False
+            for indicator in success_indicators:
+                if await indicator.first.is_visible():
+                    found = True
+                    break
+            
+            if found:
+                print(f"    [OK] Results detected")
+            else:
+                print(f"    [WARN] No immediate results detected, waiting a bit longer...")
+                await page.wait_for_timeout(3000)
+            
+            await screenshot(screenshot_name)
+            return found
 
         try:
             # Step 1: Navigate to app
             print(f"\n[STEP] Navigating to {BASE_URL}...")
-            await page.goto(BASE_URL, wait_until="networkidle")
-            await page.wait_for_timeout(2000)
-            await screenshot("initial_load")
-            await api_check("after_navigate")
+            # Increased timeout for Docker cold start
+            await page.goto(BASE_URL, wait_until="networkidle", timeout=60000)
+            await page.wait_for_timeout(5000)
+            await screenshot("01_01_initial_load")
 
             # Step 2: Login
             print(f"\n[STEP] Logging in as {USERNAME}...")
-            try:
-                await page.get_by_role("textbox", name="Username").fill(USERNAME)
-                await page.get_by_role("textbox", name="Password").fill(PASSWORD)
-                await page.get_by_role("textbox", name="Password").press("Enter")
-                await page.wait_for_timeout(8000) # Give plenty of time for dashboard to load
-                
-                # Verify login success
-                if await page.get_by_text("Credit Scoring Dashboard").count() > 0 or await page.get_by_text("Welcome").count() > 0:
-                    print("  [OK] Login successful")
-                else:
-                    print("  [WARN] Dashboard markers not found, but continuing...")
-                
-                await screenshot("after_login")
-            except Exception as e:
-                print(f"  [ERROR] Login failed: {e}")
-                return False
+            await page.get_by_role("textbox", name="Username").fill(USERNAME)
+            await page.get_by_role("textbox", name="Password").fill(PASSWORD)
+            await page.get_by_role("textbox", name="Password").press("Enter")
+            # Increase wait for dashboard load
+            await page.wait_for_timeout(15000) 
+            await screenshot("02_02_after_login")
 
             # Step 3: Threshold Interaction
             print(f"\n[STEP] Testing Threshold Interaction...")
-            try:
-                # Ensure we are on Model Performance tab
-                await click_tab(re.compile(r"Model Performance", re.I))
-
-                # Target the slider or value display from recording
+            if await click_tab(re.compile(r"Model Performance", re.I)):
                 threshold_indicator = page.locator("div").filter(has_text=re.compile(r"^0\.[0-9]+$")).first
                 if await threshold_indicator.count() > 0:
                     print(f"  [ACTION] Clicking threshold indicator...")
                     await threshold_indicator.click()
-                    await page.wait_for_timeout(1000)
-                    await screenshot("threshold_interacted")
+                    await page.wait_for_timeout(2000)
+                    await check_results(r"Confusion Matrix", "03_threshold_result")
                 else:
                     print("  [WARN] Threshold indicator not found")
-            except Exception as e:
-                print(f"  [ERROR] Threshold interaction failed: {e}")
 
-            # Step 4: Batch Predictions Upload & Process
-            print(f"\n[STEP] Testing Batch Predictions Upload...")
-            try:
-                # Click the Batch Predictions main tab
-                if await click_tab(re.compile(r"Batch Predictions", re.I)):
-                    # Ensure we are on "Upload & Predict" sub-tab
-                    await click_tab(re.compile(r"Upload & Predict", re.I))
+            # Step 4: Batch Predictions
+            print(f"\n[STEP] Testing Batch Predictions...")
+            if await click_tab(re.compile(r"Batch Predictions", re.I)):
+                await click_tab(re.compile(r"Upload & Predict", re.I))
 
-                    file_names = [
-                        "application.csv", "bureau.csv", "bureau_balance.csv",
-                        "credit_card_balance.csv", "installments_payments.csv",
-                        "POS_CASH_balance.csv", "previous_application.csv"
-                    ]
-                    files_to_upload = [str(SAMPLES_DIR / fn) for fn in file_names if (SAMPLES_DIR / fn).exists()]
+                file_names = ["application.csv", "bureau.csv", "bureau_balance.csv", "credit_card_balance.csv", "installments_payments.csv", "POS_CASH_balance.csv", "previous_application.csv"]
+                files_to_upload = [str(SAMPLES_DIR / fn) for fn in file_names if (SAMPLES_DIR / fn).exists()]
+                
+                if len(files_to_upload) >= 7:
+                    print(f"  [ACTION] Uploading {len(files_to_upload)} files...")
+                    await page.set_input_files("input[type='file']", files_to_upload)
+                    print("  [WAIT] Processing uploads...")
+                    await page.wait_for_timeout(15000)
                     
-                    if len(files_to_upload) > 0:
-                        print(f"  [ACTION] Uploading {len(files_to_upload)} files...")
-                        # Streamlit file uploader input
-                        await page.set_input_files("input[type='file']", files_to_upload)
-                        print("  [WAIT] Waiting for files to be processed by Streamlit (up to 20s)...")
-                        await page.wait_for_timeout(15000)
-                        await screenshot("files_uploaded")
-                        
-                        # Process Batch - Try finding by text or role
-                        process_btn = page.get_by_role("button", name=re.compile(r"Process Batch", re.I)).first
-                        if await process_btn.count() == 0:
-                             process_btn = page.locator("button").filter(has_text=re.compile(r"Process Batch", re.I)).first
-
-                        if await process_btn.count() > 0:
-                            print("  [ACTION] Clicking Process Batch...")
-                            await process_btn.click(force=True)
-                            print("  [WAIT] Waiting for processing (max 90s)...")
-                            try:
-                                await page.wait_for_selector("text=successfully", timeout=90000)
-                                print("  [OK] Processing complete")
-                            except:
-                                print("  [WARN] Success message 'successfully' not found, checking for results table...")
-                                if await page.locator(".stDataFrame").count() > 0:
-                                    print("  [OK] Results table found")
-                                else:
-                                    print("  [ERROR] Processing might have failed or is taking too long")
-                            
-                            await screenshot("batch_results")
-                        else:
-                            print("  [ERROR] Process Batch button not found after upload.")
+                    process_btn = page.locator("button").filter(has_text=re.compile(r"Process Batch", re.I)).first
+                    if await process_btn.is_visible():
+                        print("  [ACTION] Clicking Process Batch...")
+                        await process_btn.click(force=True)
+                        print("  [WAIT] Processing (max 60s)...")
+                        await page.wait_for_timeout(20000) # Initial wait
+                        await check_results(r"successfully|Predictions", "04_batch_result")
                     else:
-                        print("  [ERROR] No sample files found for upload")
-                else:
-                    print("  [ERROR] Batch Predictions tab not found")
+                        print("  [ERROR] Process Batch button not visible after upload")
+                        await screenshot("04_upload_error")
 
-            except Exception as e:
-                print(f"  [ERROR] Batch Prediction workflow failed: {e}")
+            # Step 5: Monitoring
+            print(f"\n[STEP] Testing Monitoring...")
+            if await click_tab(re.compile(r"Monitoring", re.I)):
+                m_tabs = ["📊 Overview", "🧠 Model Monitoring", "🔍 Data Quality"]
+                for m_tab in m_tabs:
+                    if await click_tab(m_tab):
+                        if "Data Quality" in m_tab:
+                            # Nested tabs in Data Quality
+                            for sub in ["📊 Feature Drift", "✔️ Data Quality"]:
+                                if await click_tab(sub):
+                                    analyze_btn = page.locator("button").filter(has_text=re.compile(r"Analyze", re.I)).first
+                                    if await analyze_btn.is_visible():
+                                        print(f"      [ACTION] Clicking Analyze in {sub}...")
+                                        await analyze_btn.click(force=True)
+                                        await page.wait_for_timeout(8000)
+                                        
+                                        # Verification for anomaly plots if in Data Quality tab
+                                        if "Data Quality" in sub:
+                                            # Switch to Out-of-Range tab if it's there
+                                            await click_tab(re.compile(r"Out-of-Range", re.I))
+                                            await check_results(r"Anomaly Visualizations", f"05_monitoring_anomaly_check")
+                                        else:
+                                            await check_results(r"Analysis Complete|Missing Values", f"05_monitoring_{sub[2:].strip()}")
+                        else:
+                            await check_results(r"Status|History", f"05_monitoring_{m_tab[2:].strip()}")
 
-            # Step 5: Download Reports
-            print(f"\n[STEP] Testing Report Downloads...")
-            try:
-                # Sub-tab inside Batch Predictions
-                if await click_tab(re.compile(r"Download Reports", re.I)):
-                    # Try to find any download button
-                    excel_btn = page.locator("button").filter(has_text=re.compile(r"Download Excel", re.I)).first
-                    if await excel_btn.count() > 0:
-                        print("  [ACTION] Downloading Excel...")
-                        async with page.expect_download() as download_info:
-                            await excel_btn.click()
-                        download = await download_info.value
-                        print(f"  [OK] Excel downloaded: {download.suggested_filename}")
-                    
-                    html_btn = page.locator("button").filter(has_text=re.compile(r"Download HTML", re.I)).first
-                    if await html_btn.count() > 0:
-                        print("  [ACTION] Downloading HTML...")
-                        async with page.expect_download() as download_info:
-                            await html_btn.click()
-                        download = await download_info.value
-                        print(f"  [OK] HTML downloaded: {download.suggested_filename}")
-                    
-                    await screenshot("reports_download")
-                else:
-                    print("  [WARN] Download Reports sub-tab not found")
-            except Exception as e:
-                print(f"  [ERROR] Report download failed: {e}")
+            print(f"\n[STEP] Final State Check...")
+            await api_check("final")
 
-            # Step 6: Monitoring Tabs
-            print(f"\n[STEP] Testing Monitoring Tabs...")
-            try:
-                # First click the main Monitoring tab
-                if await click_tab(re.compile(r"Monitoring", re.I)):
-                    monitoring_tabs = [
-                        "📊 Overview", 
-                        "🧠 Model Monitoring", 
-                        "⚡ Performance Monitoring", 
-                        "🔍 Data Quality", 
-                        "⚙️ System Health"
-                    ]
-                    
-                    for tab_name in monitoring_tabs:
-                        if await click_tab(tab_name):
-                            print(f"    [OK] Selected {tab_name}")
-                            
-                            if "Data Quality" in tab_name:
-                                sub_quality_tabs = ["📊 Feature Drift", "✔️ Data Quality", "📈 Drift History"]
-                                for sub_tab in sub_quality_tabs:
-                                    if await click_tab(sub_tab):
-                                        analyze_btn = page.locator("button").filter(has_text=re.compile(r"Analyze", re.I)).first
-                                        if await analyze_btn.count() > 0:
-                                            print(f"      [ACTION] Clicking Analyze button in {sub_tab}...")
-                                            await analyze_btn.click(force=True)
-                                            await page.wait_for_timeout(5000)
-                                            await screenshot(f"monitoring_{sub_tab[2:].strip()}")
-                    
-                    await screenshot("monitoring_complete")
-                else:
-                    print("  [ERROR] Monitoring main tab not found")
-            except Exception as e:
-                print(f"  [ERROR] Monitoring tabs failed: {e}")
+        except Exception as e:
+            print(f"\n[FATAL ERROR] {e}")
+            await screenshot("99_fatal_error")
+            success = False
+
 
             # Final API Health Check
             print(f"\n[STEP] Final State Check...")

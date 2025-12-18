@@ -395,13 +395,13 @@ def analyze_batch_drift(batch_id: int, reference_batch_id: int, alert_threshold:
     """Analyze drift for a batch and display in a tabular format."""
     try:
         with st.spinner("🚀 Performing statistical drift analysis..."):
-            # reference_batch_id=0 triggers training data reference in our updated API
+            # reference_batch_id=0 triggers training data reference
             params = {"reference_batch_id": reference_batch_id} if reference_batch_id > 0 else {}
             
             response = requests.post(
                 f"{API_BASE_URL}/monitoring/drift/batch/{batch_id}",
                 params=params,
-                timeout=60
+                timeout=120 # Increase timeout for large drift analysis
             )
 
             if response.status_code == 200:
@@ -409,7 +409,7 @@ def analyze_batch_drift(batch_id: int, reference_batch_id: int, alert_threshold:
                 
                 # Check if we have results
                 if not results.get('results'):
-                    st.warning(f"⚠️ No drift results returned. {results.get('features_checked', 0)} features were checked, but none could be analyzed.")
+                    st.warning(f"⚠️ No drift results returned. {results.get('features_checked', 0)} features were checked.")
                     return
 
                 st.success(f"✅ Analysis Complete: {results['features_checked']} features checked.")
@@ -417,40 +417,40 @@ def analyze_batch_drift(batch_id: int, reference_batch_id: int, alert_threshold:
                 # Tabular results preparation
                 drift_data = []
                 for feature, r in results['results'].items():
+                    # Flatten stats if they are nested in 'statistics'
+                    stats = r.get('statistics', {})
+                    
                     drift_data.append({
-                        "Status": "🔴 DRIFT" if r['is_drifted'] else "✅ OK",
+                        "Status": "🔴 DRIFT" if r.get('is_drifted') else "✅ OK",
                         "Feature Name": feature,
-                        "KS Statistic": r.get('ks_statistic', 0),
-                        "P-Value": r.get('p_value', 0),
-                        "PSI": r.get('psi', 0),
-                        "Ref Mean": r.get('reference_mean', 0),
-                        "Batch Mean": r.get('current_mean', 0),
+                        "KS Stat": r.get('ks_statistic') if r.get('ks_statistic') is not None else stats.get('ks_statistic', 0),
+                        "P-Value": r.get('p_value') if r.get('p_value') is not None else stats.get('p_value', 0),
+                        "PSI": r.get('psi') if r.get('psi') is not None else stats.get('psi', 0),
+                        "Ref Mean": r.get('reference_mean') if r.get('reference_mean') is not None else stats.get('reference_mean', 0),
+                        "Batch Mean": r.get('current_mean') if r.get('current_mean') is not None else stats.get('current_mean', 0),
                         "Interpretation": r.get('interpretation', "")
                     })
                 
                 df_results = pd.DataFrame(drift_data)
                 
-                # Summary metrics for THIS analysis
+                # Summary metrics
                 c1, c2, c3 = st.columns(3)
-                c1.metric("Features Checked", results['features_checked'])
-                c2.metric("Drifted Features", results['features_drifted'])
-                drift_rate = (results['features_drifted'] / max(results['features_checked'], 1))
-                c3.metric("Batch Drift Rate", f"{drift_rate:.1%}")
+                c1.metric("Features Checked", results.get('features_checked', 0))
+                c2.metric("Drifted Features", results.get('features_drifted', 0))
+                checked = results.get('features_checked', 1)
+                drifted = results.get('features_drifted', 0)
+                c3.metric("Batch Drift Rate", f"{(drifted / max(checked, 1)):.1%}")
 
                 st.markdown("### 📊 Detailed Results Table")
                 
-                if not df_results.empty and 'Status' in df_results.columns:
-                    # Add highlighting for drifted features
-                    def highlight_drift(s):
-                        return ['background-color: #ffcccc' if v == "🔴 DRIFT" else '' for v in s]
-                    
+                if not df_results.empty:
+                    # Formatting
                     st.dataframe(
-                        df_results.style.apply(highlight_drift, subset=['Status']),
+                        df_results.sort_values("Status", ascending=False),
                         width="stretch",
-                        height=500
+                        height=500,
+                        hide_index=True
                     )
-                else:
-                    st.dataframe(df_results, width="stretch")
                 
                 # Export option
                 csv = df_results.to_csv(index=False).encode('utf-8')
@@ -459,14 +459,20 @@ def analyze_batch_drift(batch_id: int, reference_batch_id: int, alert_threshold:
                     csv,
                     f"drift_analysis_batch_{batch_id}.csv",
                     "text/csv",
-                    key='download-csv'
+                    key='download-drift-csv'
                 )
 
             else:
-                st.error(f"Error: {response.json().get('detail', 'Unknown error')}")
+                try:
+                    err_msg = response.json().get('detail', 'Unknown error')
+                except:
+                    err_msg = response.text[:200]
+                st.error(f"API Error: {err_msg}")
 
     except Exception as e:
-        st.error(f"Analysis failed: {str(e)}")
+        st.error(f"UI Error during analysis: {str(e)}")
+        import traceback
+        st.code(traceback.format_exc())
 
 
 def render_data_quality_checks():
@@ -511,106 +517,101 @@ def render_data_quality_checks():
 
 
 def check_data_quality(batch_id: int):
-    """Check data quality for a batch."""
+    """Check data quality for a batch via the monitoring API."""
     try:
-        with st.spinner("Checking data quality..."):
-            # First get batch data
-            from backend.models import PredictionBatch
-            from backend.database import SessionLocal
-
-            db = SessionLocal()
-            batch = db.query(PredictionBatch).filter(PredictionBatch.id == batch_id).first()
-
-            if not batch or not batch.raw_applications:
-                st.warning("Batch not found or has no data")
-                return
-
-            # Convert to DataFrame
-            data_list = [raw_app.raw_data for raw_app in batch.raw_applications if raw_app.raw_data]
-            df = pd.DataFrame(data_list)
-
-            # Call API for quality check with sanitized data
+        with st.spinner("🚀 Checking data quality..."):
+            # Call new batch-specific quality endpoint
             response = requests.post(
-                f"{API_BASE_URL}/monitoring/quality",
-                json=sanitize_for_json({
-                    "dataframe_dict": df.to_dict(orient='list'),
-                    "check_missing": True,
-                    "check_range": True,
-                    "check_schema": False
-                }),
-                timeout=30
+                f"{API_BASE_URL}/monitoring/quality/batch/{batch_id}",
+                timeout=60
             )
 
             if response.status_code == 200:
                 quality_result = response.json()
 
                 # Status card
-                status_color = "green" if quality_result['valid'] else "orange"
+                status_color = "#2ca02c" if quality_result['valid'] else "#ff7f0e"
                 status_icon = "✅" if quality_result['valid'] else "⚠️"
                 st.markdown(
-                    f"<h3 style='color: {status_color}'>{status_icon} {quality_result['summary']}</h3>",
+                    f"<div style='background: white; padding: 20px; border-radius: 10px; border-left: 5px solid {status_color}; margin-bottom: 20px;'>"
+                    f"<h3 style='margin:0; color: {status_color}'>{status_icon} {quality_result['summary']}</h3>"
+                    f"</div>",
                     unsafe_allow_html=True
                 )
 
-                # Missing values
-                if quality_result['missing_values']:
-                    st.subheader("📊 Missing Values Analysis")
-                    
-                    missing_df = pd.DataFrame(
-                        list(quality_result['missing_values'].items()),
-                        columns=['Feature', 'Missing %']
-                    )
-                    missing_df = missing_df.sort_values('Missing %', ascending=False)
-                    
-                    # Show summary stats
-                    high_missing = missing_df[missing_df['Missing %'] > 20]
-                    col1, col2, col3 = st.columns(3)
-                    with col1:
-                        st.metric("Total Features", len(missing_df))
-                    with col2:
-                        st.metric("High Missing (>20%)", len(high_missing), 
-                                delta=f"{len(high_missing)/len(missing_df)*100:.1f}%" if len(missing_df) > 0 else "0%",
-                                delta_color="inverse")
-                    with col3:
-                        st.metric("Average Missing", f"{missing_df['Missing %'].mean():.1f}%")
-                    
-                    # Show top 15 features with missing values
-                    st.markdown("**Top 15 Features by Missing Values:**")
-                    top_missing = missing_df.head(15).copy()
-                    top_missing['Status'] = top_missing['Missing %'].apply(
-                        lambda x: '🔴 Critical' if x > 50 else ('🟠 High' if x > 20 else '🟢 Acceptable')
-                    )
-                    st.dataframe(
-                        top_missing[['Feature', 'Missing %', 'Status']], 
-                        width="stretch",
-                        hide_index=True
-                    )
-                    
-                    # Show features with >20% missing in expander
-                    if len(high_missing) > 0:
-                        with st.expander(f"📋 View all {len(high_missing)} features with >20% missing"):
-                            st.dataframe(
-                                high_missing[['Feature', 'Missing %']], 
-                                width="stretch",
-                                hide_index=True
-                            )
+                # Tabs for different quality views
+                q_tabs = st.tabs(["📊 Missing Values", "🎯 Out-of-Range", "📋 Detailed Report"])
 
-                # Out of range
-                if quality_result['out_of_range']:
-                    st.subheader("Out-of-Range Values")
-                    issues = []
-                    for col, info in quality_result['out_of_range'].items():
-                        issues.append({
-                            'Feature': col,
-                            'Count': info['out_of_range_count'],
-                            'Percentage': f"{info['out_of_range_pct']:.2f}%",
-                            'Status': info['status']
-                        })
-                    issues_df = pd.DataFrame(issues)
-                    st.dataframe(issues_df, width="stretch")
+                # Missing values tab
+                with q_tabs[0]:
+                    if quality_result.get('missing_values'):
+                        missing_df = pd.DataFrame(
+                            list(quality_result['missing_values'].items()),
+                            columns=['Feature', 'Missing %']
+                        ).sort_values('Missing %', ascending=False)
+                        
+                        high_missing = missing_df[missing_df['Missing %'] > 20]
+                        
+                        col1, col2 = st.columns(2)
+                        col1.metric("Features Checked", len(missing_df))
+                        col2.metric("Critical Features (>20%)", len(high_missing))
+                        
+                        st.markdown("**Top 15 Features with Missing Values:**")
+                        st.dataframe(missing_df.head(15), width="stretch", hide_index=True)
+                    else:
+                        st.success("No missing values detected!")
+
+                # Out of range tab
+                with q_tabs[1]:
+                    if quality_result.get('out_of_range'):
+                        issues = []
+                        for col, info in quality_result['out_of_range'].items():
+                            issues.append({
+                                'Feature': col,
+                                'Out-of-Range Count': info['out_of_range_count'],
+                                'Percentage': f"{info['out_of_range_pct']:.2f}%",
+                                'Status': info['status']
+                            })
+                        
+                        st.subheader("📋 Out-of-Range Feature Table")
+                        st.dataframe(pd.DataFrame(issues), width="stretch", hide_index=True)
+                        
+                        st.markdown("---")
+                        st.subheader("📈 Anomaly Visualizations")
+                        st.info("The shaded green area represents the training data range. Points outside are anomalies.")
+                        
+                        # Select feature to visualize
+                        target_col = st.selectbox("Select feature to visualize anomalies", options=list(quality_result['out_of_range'].keys()))
+                        
+                        if target_col:
+                            info = quality_result['out_of_range'][target_col]
+                            
+                            # Create a simple box plot or distribution marker
+                            fig = px.box(
+                                y=[info['min'], info['max']], 
+                                title=f"Range Anomaly: {target_col}",
+                                labels={'y': 'Value'}
+                            )
+                            
+                            # Add training range highlight
+                            fig.add_hrect(
+                                y0=info['ref_min'], y1=info['ref_max'], 
+                                fillcolor="green", opacity=0.2, 
+                                annotation_text="Expected Training Range", 
+                                annotation_position="top left"
+                            )
+                            
+                            st.plotly_chart(fig, use_container_width=True)
+                    else:
+                        st.success("All values within expected training data ranges!")
+
+                # Detailed Report tab
+                with q_tabs[2]:
+                    st.json(quality_result)
 
             else:
-                st.error(f"Quality check failed: {response.json().get('detail')}")
+                err_msg = response.json().get('detail', 'Unknown error')
+                st.error(f"Quality check failed: {err_msg}")
 
     except Exception as e:
         st.error(f"Error checking quality: {str(e)}")

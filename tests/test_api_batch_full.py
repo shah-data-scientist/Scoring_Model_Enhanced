@@ -48,7 +48,12 @@ class TestBatchPredictEndpoint:
         # Mock pipeline
         mock_pipeline = MagicMock()
         mock_pipeline_getter.return_value = mock_pipeline
-        mock_pipeline.process.return_value = (pd.DataFrame([[1, 2]], columns=['f1', 'f2']), pd.Series([100001]))
+        # Now returns 3 values: scaled_df, unscaled_df, sk_id_curr
+        mock_pipeline.process.return_value = (
+            pd.DataFrame([[1, 2]], columns=['f1', 'f2']), 
+            pd.DataFrame([[1, 2]], columns=['f1', 'f2']), # unscaled same as scaled for mock
+            pd.Series([100001])
+        )
         
         # Mock batch record
         mock_batch = MagicMock()
@@ -127,7 +132,11 @@ class TestBatchPredictEndpoint:
         
         mock_pipeline = MagicMock()
         mock_pipeline_getter.return_value = mock_pipeline
-        mock_pipeline.process.return_value = (pd.DataFrame([[1, 2]], columns=['f1', 'f2']), pd.Series([100001]))
+        mock_pipeline.process.return_value = (
+            pd.DataFrame([[1, 2]], columns=['f1', 'f2']), 
+            pd.DataFrame([[1, 2]], columns=['f1', 'f2']),
+            pd.Series([100001])
+        )
         
         mock_batch = MagicMock()
         mock_batch.id = 1

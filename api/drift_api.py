@@ -379,3 +379,69 @@ async def get_data_stats_summary(db: Session = Depends(get_db)):
             }
 
     return await anyio.to_thread.run_sync(_fetch_summary)
+
+
+@router.post("/quality/batch/{batch_id}", response_model=DataQualityResponse)
+async def check_data_quality_batch(
+    batch_id: int,
+    db: Session = Depends(get_db)
+):
+    """
+    Check data quality for all applications in a batch.
+    """
+    def _run_batch_quality():
+        try:
+            batch = get_batch(db, batch_id)
+            if not batch:
+                return {"error": f"Batch {batch_id} not found"}
+            
+            if not batch.raw_applications:
+                return {"error": f"No raw data in batch {batch_id}"}
+            
+            # Extract raw data
+            data_list = []
+            for raw_app in batch.raw_applications:
+                if raw_app.raw_data:
+                    data_list.append(raw_app.raw_data)
+            
+            if not data_list:
+                return {"error": "No valid data found in batch applications"}
+                
+            df = pd.DataFrame(data_list)
+            
+            # Run same checks as the generic /quality endpoint
+            results = {
+                'valid': True,
+                'missing_values': check_missing_values(df),
+                'out_of_range': check_out_of_range(df),
+                'schema_validation': None,
+                'summary': ""
+            }
+            
+            # Build summary
+            issues = []
+            high_missing = {k: v for k, v in results['missing_values'].items() if v > 20}
+            if high_missing:
+                issues.append(f"{len(high_missing)} features with high missing values (>20%)")
+                results['valid'] = False
+                
+            if results['out_of_range']:
+                warnings = {k: v for k, v in results['out_of_range'].items() if v['status'] == 'WARNING'}
+                if warnings:
+                    issues.append(f"{len(warnings)} out-of-range warnings")
+            
+            if issues:
+                results['summary'] = "; ".join(issues)
+            else:
+                results['summary'] = "✅ All quality checks passed"
+                
+            return results
+        except Exception as e:
+            return {"error": str(e)}
+
+    results = await anyio.to_thread.run_sync(_run_batch_quality)
+    
+    if "error" in results:
+        raise HTTPException(status_code=400, detail=results["error"])
+        
+    return DataQualityResponse(**results)

@@ -9,26 +9,26 @@ Then visit:
     - API docs: http://localhost:8000/docs
     - Health check: http://localhost:8000/health
 """
-import json  # Added json import
+import json
 from datetime import datetime
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
-from fastapi import FastAPI, HTTPException, status
+from fastapi import FastAPI, HTTPException, status, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi import Request
 import time
 import os
 import psutil
 from pydantic import BaseModel, Field, validator
 
 # Import routers
-from api.batch_predictions import router as batch_router
+from api.batch_predictions import router as batch_router, production_logger
 from api.drift_api import router as drift_router
 from api.metrics import router as metrics_router, precompute_all_metrics
-from api.file_validation import validate_input_data  # Imported validate_input_data
+from api.file_validation import validate_input_data
 from api.mlflow_loader import load_model_from_mlflow, get_mlflow_run_info
+from api.utils.logging import log_prediction
 
 # Import database components
 from backend.database import engine, get_db_info
@@ -80,9 +80,10 @@ _rate_limit_store: dict[str, list[float]] = {}
 
 @app.middleware("http")
 async def request_limits_middleware(request: Request, call_next):
+    start_time = time.time()
+    
     # Request body size guard (applies to uploads)
     try:
-        # Note: Starlette doesn't expose content length reliably; fallback to streaming guard if needed
         content_length = request.headers.get("content-length")
         if content_length and int(content_length) > MAX_REQUEST_BODY:
             from starlette.responses import Response
@@ -105,6 +106,11 @@ async def request_limits_middleware(request: Request, call_next):
     _rate_limit_store[client_ip] = timestamps
 
     response = await call_next(request)
+    
+    # Calculate duration and log if it was a prediction endpoint
+    duration = (time.time() - start_time) * 1000
+    response.headers["X-Process-Time"] = str(duration)
+    
     return response
 
 # Include routers

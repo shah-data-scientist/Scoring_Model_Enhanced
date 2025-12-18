@@ -384,10 +384,11 @@ async def predict_batch(
         try:
             t_start = time.time()
             pipeline = get_preprocessing_pipeline()
-            features_df, sk_id_curr = pipeline.process(dataframes, keep_sk_id=False)
+            features_df, unscaled_df, sk_id_curr = pipeline.process(dataframes, keep_sk_id=False, return_unscaled=True)
 
             # Ensure features are in correct format
             X = features_df.values
+            X_rv = unscaled_df.values
             feature_names = list(features_df.columns)
             logger.info(f"TIMING: Preprocessing took {time.time() - t_start:.2f}s")
 
@@ -499,8 +500,16 @@ async def predict_batch(
                     # Get top 10 features by absolute SHAP value
                     abs_shap = np.abs(np.where(valid_mask, shap_row, 0))
                     top_indices = np.argsort(abs_shap)[-10:][::-1]
+                    
+                    # Row of unscaled features for this specific prediction
+                    rv_row = X_rv[i]
+                    
                     pred_data['top_features'] = [
-                        {'feature': feature_names[j], 'shap_value': float(shap_row[j])}
+                        {
+                            'feature': feature_names[j], 
+                            'shap_value': float(shap_row[j]),
+                            'rv': float(rv_row[j]) if not np.isnan(rv_row[j]) else None
+                        }
                         for j in top_indices if valid_mask[j]
                     ]
 
