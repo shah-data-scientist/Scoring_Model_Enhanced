@@ -71,26 +71,61 @@ def get_preprocessing_pipeline():
 
 
 def get_shap_explainer(model):
-    """Get or create cached SHAP explainer for performance."""
+    """Get or create cached SHAP explainer. Loads pickle model and background data for probability output."""
     global _shap_explainer, _shap_explainer_model_id
 
     if not SHAP_AVAILABLE:
         return None
 
-    # ONNX models don't support TreeExplainer
+    # Handle ONNX models: Load the original pickle model for SHAP
     from api.onnx_wrapper import ONNXModelWrapper
+    original_model = model
     if isinstance(model, ONNXModelWrapper):
-        return None
+        if _shap_explainer is not None:
+             return _shap_explainer
+             
+        try:
+            import pickle
+            model_path = PROJECT_ROOT / "models" / "production_model.pkl"
+            if not model_path.exists():
+                return None
+            with open(model_path, 'rb') as f:
+                original_model = pickle.load(f)
+        except Exception:
+            return None
 
-    model_id = id(model)
+    model_id = id(original_model)
     if _shap_explainer is None or _shap_explainer_model_id != model_id:
         try:
-            _shap_explainer = shap.TreeExplainer(model)
+            # Load small background sample for probability output support
+            background_data = None
+            try:
+                train_path = PROJECT_ROOT / "data" / "processed" / "X_train.csv"
+                if train_path.exists():
+                    background_data = pd.read_csv(train_path, nrows=100)
+                    # Filter to numeric only and match model features
+                    background_data = background_data.select_dtypes(include=[np.number])
+                    if hasattr(original_model, 'feature_name_'):
+                        background_data = background_data[original_model.feature_name_]
+            except Exception as e:
+                logger.warning(f"Could not load background data for SHAP: {e}")
+
+            # Initialize with background data if available
+            if background_data is not None:
+                _shap_explainer = shap.TreeExplainer(original_model, background_data, model_output='probability')
+            else:
+                _shap_explainer = shap.TreeExplainer(original_model, model_output='probability')
+            
             _shap_explainer_model_id = model_id
-            logger.info("SHAP TreeExplainer initialized and cached")
+            logger.info("SHAP TreeExplainer initialized (probability mode)")
         except Exception as e:
-            logger.warning(f"Failed to create SHAP explainer: {e}")
-            return None
+            try:
+                _shap_explainer = shap.TreeExplainer(original_model)
+                _shap_explainer_model_id = model_id
+                logger.warning(f"SHAP probability mode failed, using log-odds: {e}")
+            except Exception as e2:
+                logger.error(f"Critical SHAP failure: {e2}")
+                return None
 
     return _shap_explainer
 
@@ -381,9 +416,9 @@ async def predict_batch(
             )
 
         # Step 6.5: Compute SHAP values (optional, for explainability)
-        # Skip for large batches (> 20 applications) to ensure performance
+        # Skip for very large batches to ensure performance
         shap_values_list = None
-        if SHAP_AVAILABLE and len(X) <= 20:
+        if SHAP_AVAILABLE and len(X) <= 1000:
             try:
                 t_start = time.time()
                 # Use cached explainer for performance
@@ -401,8 +436,8 @@ async def predict_batch(
             except Exception as e:
                 logger.warning(f"SHAP computation skipped: {e}")
                 shap_values_list = None
-        elif len(X) > 20:
-            logger.info(f"Skipping SHAP for batch size {len(X)} (limit: 20) to ensure performance")
+        elif len(X) > 1000:
+            logger.info(f"Skipping SHAP for batch size {len(X)} (limit: 1000) to ensure performance")
 
         # Step 7: Create results
         results_df = create_results_dataframe(sk_id_curr, predictions, probabilities)
@@ -434,6 +469,26 @@ async def predict_batch(
                     shap_dict = {feat_name: (float(shap_row[j]) if valid_mask[j] else None)
                                  for j, feat_name in enumerate(feature_names)}
                     pred_data['shap_values'] = shap_dict
+                    
+                    # Add base value (expected value) for waterfall plots
+                    explainer = get_shap_explainer(model)
+                    if explainer is not None:
+                        try:
+                            # For binary classification, expected_value might be a list [class0, class1]
+                            val = explainer.expected_value
+                            logger.info(f"SHAP expected_value type: {type(val)}, value: {val}")
+                            
+                            if isinstance(val, (list, np.ndarray)):
+                                # If multiple outputs, take the second one (positive class)
+                                if len(val) > 1:
+                                    pred_data['expected_value'] = float(val[1])
+                                else:
+                                    pred_data['expected_value'] = float(val[0])
+                            else:
+                                pred_data['expected_value'] = float(val)
+                        except Exception as e:
+                            logger.error(f"Error extracting expected_value: {e}")
+                            pred_data['expected_value'] = 0.0
 
                     # Get top 10 features by absolute SHAP value
                     abs_shap = np.abs(np.where(valid_mask, shap_row, 0))

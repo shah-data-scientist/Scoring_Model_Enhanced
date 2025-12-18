@@ -864,7 +864,8 @@ def generate_detailed_html_report(predictions: list, batch_name: str) -> str:
 
         # Generate waterfall plot for SHAP values
         if shap_values:
-            html += generate_waterfall_html(shap_values, top_features)
+            expected_val = pred.get('expected_value', 0)
+            html += generate_waterfall_html(shap_values, top_features, expected_val)
         else:
             html += """
                 <div class="waterfall-container">
@@ -911,118 +912,143 @@ def _format_value(value) -> str:
     return str(value)
 
 
-def generate_waterfall_html(shap_values: dict, top_features: list | None = None) -> str:
-    """Generate HTML waterfall chart with value column and type/missing indicators."""
-    # Build enriched feature list (prefer top_features if available)
+def generate_waterfall_html(shap_values: dict, top_features: list | None = None, expected_value: float = 0) -> str:
+    """Generate a TRUE cumulative waterfall HTML chart with logit-to-prob transformation if needed."""
+    
+    # Sigmoid function for probability conversion
+    def sigmoid(x):
+        return 1 / (1 + np.exp(-x))
+
+    # Determine if we are in log-odds space (logits) or probability space
+    # If base value > 1 or < -1, it's definitely logits.
+    # If expected_value is e.g. 0.1, it could be either (but probability 10% is common).
+    # We check if the sum of base + shap is outside [0, 1]
+    is_logit = False
+    if expected_value > 1 or expected_value < 0 or abs(sum(shap_values.values())) > 1:
+        is_logit = True
+
+    # Build enriched feature list
     enriched = []
     if top_features:
         for item in top_features:
             enriched.append({
                 'feature': item.get('feature'),
                 'shap_value': item.get('shap_value', 0),
-                'value': item.get('value'),
-                'type': item.get('type', 'R'),
-                'missing': bool(item.get('missing', False))
+                'value': item.get('value')
             })
     else:
-        # Fallback: use shap_values only
         for feature, value in shap_values.items():
             enriched.append({
                 'feature': feature,
                 'shap_value': value,
-                'value': None,
-                'type': 'R',
-                'missing': False
+                'value': None
             })
 
-    # Sort by absolute SHAP and cap at 10
+    # Sort and cap
     enriched = sorted(enriched, key=lambda x: abs(x['shap_value']), reverse=True)[:10]
-
-    # Calculate others
-    others_sum = 0
-    if len(shap_values) > len(enriched):
+    
+    # Calculate cumulative points for scaling
+    # If logit, we calculate points in probability space for the plot
+    if is_logit:
+        current_logit = expected_value
+        points = [sigmoid(current_logit)]
+        for item in enriched:
+            current_logit += item['shap_value']
+            points.append(sigmoid(current_logit))
+        
         top_set = {e['feature'] for e in enriched}
         others_sum = sum(v for k, v in shap_values.items() if k not in top_set)
-
-    max_abs = max(abs(e['shap_value']) for e in enriched) if enriched else 1
-    if others_sum != 0:
-        max_abs = max(max_abs, abs(others_sum))
+        if others_sum != 0:
+            current_logit += others_sum
+            points.append(sigmoid(current_logit))
+    else:
+        current_val = expected_value
+        points = [current_val]
+        for item in enriched:
+            current_val += item['shap_value']
+            points.append(current_val)
+        
+        top_set = {e['feature'] for e in enriched}
+        others_sum = sum(v for k, v in shap_values.items() if k not in top_set)
+        if others_sum != 0:
+            current_val += others_sum
+            points.append(current_val)
+        
+    min_p, max_p = min(points), max(points)
+    total_range = max(abs(max_p - min_p), 0.0001)
+    
+    padding = total_range * 0.1
+    min_p -= padding
+    max_p += padding
+    total_range = max_p - min_p
 
     html = """
         <div class="waterfall-container">
-            <div class="waterfall-title">Top SHAP Feature Contributions</div>
-            <div class="legend">
-                <div class="legend-item">
-                    <div class="legend-color" style="background: #dc3545;"></div>
-                    <span>Increases default risk</span>
-                </div>
-                <div class="legend-item">
-                    <div class="legend-color" style="background: #28a745;"></div>
-                    <span>Decreases default risk</span>
-                </div>
-            </div>
+            <div class="waterfall-title">Cumulative Waterfall (SHAP)</div>
             <div style="margin-top: 15px;">
     """
 
-    for item in enriched:
-        feature = item['feature']
-        value = item['shap_value']
-        feat_val = _format_value(item.get('value'))
-        feat_type = item.get('type', 'R')
-        missing = bool(item.get('missing', False))
-
-        bar_width = abs(value) / max_abs * 50  # Max 50% width
-        is_positive = value > 0
-        bar_class = "waterfall-bar-positive" if is_positive else "waterfall-bar-negative"
-        value_class = "positive" if is_positive else "negative"
-
-        if is_positive:
-            style = f"left: 50%; width: {bar_width}%;"
-        else:
-            style = f"right: 50%; width: {bar_width}%;"
-
-        # Format label with type/missing markers
-        display_label = _format_feature_label(feature.replace('_', ' '), feat_type, missing)
-        if len(display_label) > 40:
-            display_label = display_label[:37] + "..."
-
-        html += f"""
-            <div class="waterfall-bar">
-                <div class="waterfall-label" title="{feature}">{display_label}</div>
-                <div class="waterfall-bar-container">
-                    <div class="waterfall-bar-fill {bar_class}" style="{style}"></div>
-                </div>
-                <div class="waterfall-value {value_class}">{value:+.4f}</div>
-                <div class="waterfall-value" style="color: #333;">{feat_val}</div>
+    # Add Base Value row
+    base_val_display = sigmoid(expected_value) if is_logit else expected_value
+    base_pos = (base_val_display - min_p) / total_range * 100
+    html += f"""
+        <div class="waterfall-bar" style="background: #eee; border-radius: 4px; margin-bottom: 12px; padding: 5px;">
+            <div class="waterfall-label"><strong>[Base Probability]</strong></div>
+            <div class="waterfall-bar-container" style="background: transparent;">
+                <div style="position: absolute; left: 0; width: {base_pos}%; height: 100%; border-right: 2px solid #666;"></div>
             </div>
-        """
-
-    if others_sum != 0:
-        bar_width = abs(others_sum) / max_abs * 50
-        is_positive = others_sum > 0
-        bar_class = "waterfall-bar-positive" if is_positive else "waterfall-bar-negative"
-        value_class = "positive" if is_positive else "negative"
-
-        if is_positive:
-            style = f"left: 50%; width: {bar_width}%;"
-        else:
-            style = f"right: 50%; width: {bar_width}%;"
-
-        html += f"""
-            <div class="waterfall-bar" style="border-top: 1px dashed #ccc; padding-top: 8px; margin-top: 8px;">
-                <div class="waterfall-label" title="Sum of remaining features"><em>Others (consolidated)</em></div>
-                <div class="waterfall-bar-container">
-                    <div class="waterfall-bar-fill {bar_class}" style="{style}"></div>
-                </div>
-                <div class="waterfall-value {value_class}">{others_sum:+.4f}</div>
-                <div class="waterfall-value" style="color: #333;">—</div>
-            </div>
-        """
-
-    html += """
-            </div>
+            <div class="waterfall-value">{base_val_display:.2%}</div>
         </div>
     """
 
+    # Running sum for positioning
+    running_total_logit = expected_value if is_logit else None
+    running_total_prob = expected_value if not is_logit else sigmoid(expected_value)
+    
+    for item in enriched:
+        feature = item['feature']
+        val = item['shap_value']
+        
+        start_p = (running_total_prob - min_p) / total_range * 100
+        
+        if is_logit:
+            running_total_logit += val
+            running_total_prob = sigmoid(running_total_logit)
+            # For display, show probability impact (approx)
+            display_impact = sigmoid(running_total_logit) - sigmoid(running_total_logit - val)
+        else:
+            running_total_prob += val
+            display_impact = val
+            
+        end_p = (running_total_prob - min_p) / total_range * 100
+        
+        left = min(start_p, end_p)
+        width = abs(start_p - end_p)
+        
+        bar_class = "waterfall-bar-positive" if display_impact > 0 else "waterfall-bar-negative"
+        value_class = "positive" if display_impact > 0 else "negative"
+
+        html += f"""
+            <div class="waterfall-bar">
+                <div class="waterfall-label">{feature.replace('_', ' ')}</div>
+                <div class="waterfall-bar-container">
+                    <div class="waterfall-bar-fill {bar_class}" style="left: {left}%; width: {width}%;"></div>
+                </div>
+                <div class="waterfall-value {value_class}">{display_impact:+.2%}</div>
+            </div>
+        """
+
+    # Final Prediction row
+    html += f"""
+        <div class="waterfall-bar" style="border-top: 2px solid #333; margin-top: 10px; padding-top: 10px;">
+            <div class="waterfall-label"><strong>Final Probability</strong></div>
+            <div class="waterfall-bar-container" style="background: transparent;">
+                <div style="position: absolute; left: 0; width: {(running_total_prob - min_p)/total_range*100}%; height: 100%; background: #1f77b4; opacity: 0.3; border-radius: 4px;"></div>
+            </div>
+            <div class="waterfall-value" style="font-weight: bold; color: #1f77b4;">{running_total_prob:.2%}</div>
+        </div>
+    """
+
+    html += "</div></div>"
     return html
 
