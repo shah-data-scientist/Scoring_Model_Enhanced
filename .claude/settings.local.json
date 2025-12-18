@@ -47,7 +47,20 @@
       "Bash(timeout 2 sleep:*)",
       "Bash(timeout 10 poetry run uvicorn:*)",
       "Bash(timeout 15 poetry run uvicorn:*)",
-      "Bash(timeout 20 poetry run uvicorn:*)"
+      "Bash(timeout 20 poetry run uvicorn:*)",
+      "Bash(if [ ! -d \"data/processed\" ])",
+      "Bash(then mkdir -p data/processed)",
+      "Bash(if [ ! -d \"data/raw\" ])",
+      "Bash(then mkdir -p data/raw)",
+      "Bash(if [ ! -d \"logs\" ])",
+      "Bash(then mkdir -p logs)",
+      "Bash(if [ ! -d \"models\" ])",
+      "Bash(then mkdir -p models)",
+      "Bash(poetry run pip list:*)",
+      "Bash(poetry run pip:*)",
+      "Bash(poetry run ruff:*)",
+      "Bash(poetry run mypy:*)",
+      "Bash(poetry run black:*)"
     ],
     "deny": [],
     "ask": []
