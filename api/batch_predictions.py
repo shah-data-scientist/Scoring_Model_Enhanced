@@ -19,7 +19,7 @@ import numpy as np
 import pandas as pd
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from fastapi.responses import StreamingResponse
-import api.app as main_app
+# import api.app as main_app # Moved inside function to avoid circular import
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
@@ -31,13 +31,7 @@ from api.utils.logging import setup_production_logger, log_batch_prediction, log
 from backend import crud
 from backend.database import get_db
 
-# Import SHAP once at module level for performance
-try:
-    import shap
-    SHAP_AVAILABLE = True
-except ImportError:
-    SHAP_AVAILABLE = False
-    shap = None
+# SHAP will be imported lazily inside get_shap_explainer
 
 # Load the full list of 189 model features
 PROJECT_ROOT = Path(__file__).parent.parent
@@ -74,7 +68,9 @@ def get_shap_explainer(model):
     """Get or create cached SHAP explainer. Loads pickle model and background data for probability output."""
     global _shap_explainer, _shap_explainer_model_id
 
-    if not SHAP_AVAILABLE:
+    try:
+        import shap
+    except ImportError:
         return None
 
     # Handle ONNX models: Load the original pickle model for SHAP
@@ -328,6 +324,7 @@ async def predict_batch(
     start_time = time.time()
     
     # Get model from main app and validate
+    import api.app as main_app
     model = main_app.model
     ModelValidator.check_model_loaded(model, "Batch prediction")
     ModelValidator.validate_model_attributes(model, ['predict_proba'])
@@ -418,7 +415,16 @@ async def predict_batch(
         # Step 6.5: Compute SHAP values (optional, for explainability)
         # Skip for very large batches to ensure performance
         shap_values_list = None
-        if SHAP_AVAILABLE and len(X) <= 1000:
+        
+        # Lazy check for shap availability
+        shap_available = False
+        try:
+            import shap
+            shap_available = True
+        except ImportError:
+            shap_available = False
+
+        if shap_available and len(X) <= 1000:
             try:
                 t_start = time.time()
                 # Use cached explainer for performance

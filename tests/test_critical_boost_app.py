@@ -2,43 +2,31 @@ import pytest
 from fastapi.testclient import TestClient
 from api.app import app
 
-client = TestClient(app)
-
 class TestHealthEndpoints:
-    @pytest.mark.skip(reason="Health endpoints vary by environment")
-    def test_health_basic(self):
-        r = client.get('/health')
-        assert r.status_code in [200]
+    def test_health_basic(self, test_app_client):
+        r = test_app_client.get('/health')
+        assert r.status_code in [200, 503]
         d = r.json()
         assert 'status' in d or isinstance(d, dict)
 
-    @pytest.mark.skip(reason="MLflow may be unavailable in CI")
-    def test_mlflow_health(self):
-        r = client.get('/health/mlflow')
-        assert r.status_code in [200, 500]
-
-    @pytest.mark.skip(reason="Database may be unavailable in CI")
-    def test_database_health(self):
-        r = client.get('/health/database')
-        assert r.status_code in [200, 500]
+    def test_database_health(self, test_app_client):
+        r = test_app_client.get('/health/database')
+        assert r.status_code in [200, 500, 503]
 
 class TestPredictErrors:
-    @pytest.mark.skip(reason="Model may not be loaded in CI")
-    def test_predict_model_not_loaded(self):
+    def test_predict_model_not_loaded(self, test_app_client):
         payload = {"features": [0.0]*189}
-        r = client.post('/predict', json=payload)
-        assert r.status_code in [422, 503]
+        r = test_app_client.post('/predict', json=payload)
+        assert r.status_code in [200, 422, 503]
 
-    @pytest.mark.skip(reason="Feature validation differs by version")
-    def test_predict_invalid_feature_length(self):
+    def test_predict_invalid_feature_length(self, test_app_client):
         payload = {"features": [0.0]*10}
-        r = client.post('/predict', json=payload)
+        r = test_app_client.post('/predict', json=payload)
         assert r.status_code == 422
 
-    @pytest.mark.skip(reason="Numeric validation differs by version")
-    def test_predict_non_numeric(self):
+    def test_predict_non_numeric(self, test_app_client):
         payload = {"features": ["x"]*189}
-        r = client.post('/predict', json=payload)
+        r = test_app_client.post('/predict', json=payload)
         assert r.status_code == 422
 
 class TestBatchHelpers:

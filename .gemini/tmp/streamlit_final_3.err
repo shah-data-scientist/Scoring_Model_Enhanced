@@ -1,0 +1,9 @@
+2025-12-18 22:14:31,566 - __main__ - INFO - User not authenticated - showing login page
+2025-12-18 22:14:50,225 - __main__ - INFO - User not authenticated - showing login page
+2025-12-18 22:14:52,635 - __main__ - INFO - Rendering Model Performance tab
+2025-12-18 22:15:13,100 - streamlit_app.pages.model_performance - INFO - Rendering Model Performance page
+2025-12-18 22:15:13,175 - streamlit_app.pages.model_performance - INFO - Fetched metrics for 50 thresholds from API
+2025-12-18 22:15:18,584 - __main__ - INFO - Rendering Batch Predictions tab
+2025-12-18 22:15:24,553 - __main__ - INFO - Rendering Model Performance tab
+2025-12-18 22:15:24,558 - streamlit_app.pages.model_performance - INFO - Rendering Model Performance page
+2025-12-18 22:15:29,556 - __main__ - INFO - Rendering Batch Predictions tab

@@ -5,8 +5,9 @@ FROM python:3.12-slim AS builder
 
 WORKDIR /app
 
-# Install Poetry and export dependencies in one layer
-RUN pip install --no-cache-dir poetry poetry-plugin-export
+# Install Poetry and export dependencies using cache mount
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install poetry poetry-plugin-export
 
 COPY pyproject.toml poetry.lock ./
 
@@ -17,16 +18,18 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
-# Install system dependencies and Python packages in one layer
+# Install system dependencies and Python packages with cache mount
 COPY --from=builder /app/requirements.txt .
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     libgomp1 \
-    && rm -rf /var/lib/apt/lists/* \
-    && pip install --no-cache-dir --upgrade pip \
-    && pip install --no-cache-dir -r requirements.txt \
-    && rm requirements.txt
+    && rm -rf /var/lib/apt/lists/*
+
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install --upgrade pip && \
+    pip install -r requirements.txt && \
+    rm requirements.txt
 
 # Create user and directories first (better layer caching)
 RUN addgroup --system --gid 1001 appgroup \

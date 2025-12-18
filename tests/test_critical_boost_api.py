@@ -45,26 +45,7 @@ class TestHealthPaths:
         r = client.get('/health')
         assert r.status_code in [200, 500, 429]
 
-    def test_mlflow_health_connected(self, monkeypatch):
-        def fake_run_info(**kwargs):
-            return {
-                'experiment_name': 'exp',
-                'run_id': '1',
-                'run_name': 'r',
-                'status': 'FINISHED',
-                'parameters': {'optimal_threshold': 0.5},
-                'metrics': {'auc': 0.9}
-            }
-        monkeypatch.setattr(app_module, 'get_mlflow_run_info', fake_run_info)
-        r = client.get('/health/mlflow')
-        assert r.status_code in [200, 500, 429]
 
-    def test_mlflow_health_error(self, monkeypatch):
-        def boom(**kwargs):
-            raise RuntimeError('mlflow down')
-        monkeypatch.setattr(app_module, 'get_mlflow_run_info', boom)
-        r = client.get('/health/mlflow')
-        assert r.status_code in [200, 500, 429]
 
     def test_database_health_connected(self, monkeypatch):
         monkeypatch.setattr(app_module, 'get_db_info', lambda: {

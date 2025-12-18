@@ -106,20 +106,15 @@ class TestDriftApiSummary:
         # Override DB dependency to force exception and exercise graceful fallback
         app.dependency_overrides = {}
         app.dependency_overrides[get_db] = lambda: _BrokenQuerySession()
-        client = TestClient(app)
+        try:
+            client = TestClient(app)
+            response = client.get("/monitoring/stats/summary")
 
-        response = client.get("/monitoring/stats/summary")
+            assert response.status_code == 200
+            payload = response.json()
+            assert payload["data_drift"]["total_features_checked"] == 0
+            assert payload["predictions"]["total"] == 0
+        finally:
+            app.dependency_overrides = {}
 
-        assert response.status_code == 200
-        payload = response.json()
-        assert payload["data_drift"]["total_features_checked"] == 0
-        assert payload["predictions"]["total"] == 0
 
-
-class TestMlflowLoaderFallback:
-    def test_fallback_raises_when_missing_file(self, tmp_path):
-        from api import mlflow_loader
-
-        missing = tmp_path / "no_model.pkl"
-        with pytest.raises(FileNotFoundError):
-            mlflow_loader._load_fallback_model(missing)

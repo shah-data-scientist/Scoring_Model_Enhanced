@@ -1,40 +1,33 @@
 """Tests for metrics module."""
 import pytest
 
-# Skip non-critical metrics endpoint tests (covered by core suite)
-pytestmark = pytest.mark.skip(reason="Skipping non-critical metrics endpoints")
-
-
 class TestMetricsEndpoints:
     """Tests for metrics endpoints."""
 
-    @pytest.mark.skip(reason="Metrics endpoints not yet verified")
-    def test_confusion_matrix_endpoint(self):
+    def test_confusion_matrix_endpoint(self, test_app_client):
         """Test confusion matrix endpoint exists."""
-        response = client.get("/metrics/confusion-matrix")
+        response = test_app_client.get("/metrics/confusion-matrix")
         # Should return 200 or error, not 404
         assert response.status_code in [200, 404, 500]
 
-    @pytest.mark.skip(reason="Metrics endpoints not yet verified")
-    def test_optimal_threshold_endpoint(self):
+    def test_optimal_threshold_endpoint(self, test_app_client):
         """Test optimal threshold endpoint."""
-        response = client.get("/metrics/optimal-threshold")
+        response = test_app_client.get("/metrics/optimal-threshold")
         assert response.status_code in [200, 404, 500]
 
-    @pytest.mark.skip(reason="Metrics endpoints not yet verified")
-    def test_threshold_metrics_endpoint(self):
+    def test_threshold_metrics_endpoint(self, test_app_client):
         """Test threshold metrics endpoint."""
-        response = client.get("/metrics/threshold/0.5")
+        response = test_app_client.get("/metrics/threshold/0.5")
         assert response.status_code in [200, 404, 422, 500]
 
-    def test_all_thresholds_endpoint(self):
+    def test_all_thresholds_endpoint(self, test_app_client):
         """Test all thresholds endpoint."""
-        response = client.get("/metrics/all-thresholds")
+        response = test_app_client.get("/metrics/all-thresholds")
         assert response.status_code in [200, 404, 500]
 
-    def test_feature_importance_endpoint(self):
+    def test_feature_importance_endpoint(self, test_app_client):
         """Test feature importance endpoint."""
-        response = client.get("/metrics/feature-importance")
+        response = test_app_client.get("/metrics/feature-importance")
         assert response.status_code in [200, 404, 500]
 
 

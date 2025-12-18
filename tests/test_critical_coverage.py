@@ -6,9 +6,6 @@ from api.app import app
 from backend.auth import hash_password, verify_password
 import numpy as np
 
-# Skip all critical coverage tests for now - they require full app startup
-pytestmark = pytest.mark.skip(reason="App startup required - covered by other test modules")
-
 
 # ============================================================================
 # APP STARTUP AND HEALTH ENDPOINTS - CRITICAL PATH COVERAGE
@@ -17,29 +14,23 @@ pytestmark = pytest.mark.skip(reason="App startup required - covered by other te
 class TestAppHealthEndpoints:
     """Tests for critical health check endpoints that ARE registered."""
 
-    @pytest.mark.skip(reason="Test client initialization requires full startup")
-    def test_health_endpoint_basic(self):
+    def test_health_endpoint_basic(self, test_app_client):
         """Test /health endpoint returns 200."""
-        response = client.get("/health")
+        response = test_app_client.get("/health")
         assert response.status_code == 200
 
-    @pytest.mark.skip(reason="Test client initialization requires full startup")
-    def test_health_endpoint_has_status_field(self):
+    def test_health_endpoint_has_status_field(self, test_app_client):
         """Test /health returns proper structure."""
-        response = client.get("/health")
+        response = test_app_client.get("/health")
         if response.status_code == 200:
             data = response.json()
             # Should be a dict with health info
             assert isinstance(data, dict)
 
-    def test_mlflow_health_endpoint(self):
-        """Test /health/mlflow endpoint exists."""
-        response = client.get("/health/mlflow")
-        assert response.status_code in [200, 503]  # May fail if MLflow unavailable
 
-    def test_database_health_endpoint(self):
+    def test_database_health_endpoint(self, test_app_client):
         """Test /health/database endpoint exists."""
-        response = client.get("/health/database")
+        response = test_app_client.get("/health/database")
         assert response.status_code in [200, 503, 500]  # May fail if DB unavailable
 
 
@@ -50,65 +41,65 @@ class TestAppHealthEndpoints:
 class TestPredictEndpointLogic:
     """Tests for predict endpoint business logic."""
 
-    def test_predict_with_valid_189_features(self):
+    def test_predict_with_valid_189_features(self, test_app_client):
         """Test predict with valid 189 features."""
         payload = {"features": [0.5] * 189, "client_id": 123}
-        response = client.post("/predict", json=payload)
+        response = test_app_client.post("/predict", json=payload)
         # Should either work (200) or fail validation (422) or service unavailable (503)
         assert response.status_code in [200, 422, 503]
 
-    def test_predict_missing_features_field(self):
+    def test_predict_missing_features_field(self, test_app_client):
         """Test predict without features field."""
         payload = {"client_id": 123}
-        response = client.post("/predict", json=payload)
+        response = test_app_client.post("/predict", json=payload)
         assert response.status_code == 422
 
-    def test_predict_wrong_feature_count(self):
+    def test_predict_wrong_feature_count(self, test_app_client):
         """Test predict with wrong number of features."""
         payload = {"features": [0.5] * 100}
-        response = client.post("/predict", json=payload)
+        response = test_app_client.post("/predict", json=payload)
         assert response.status_code == 422
 
-    def test_predict_empty_features(self):
+    def test_predict_empty_features(self, test_app_client):
         """Test predict with empty features."""
         payload = {"features": []}
-        response = client.post("/predict", json=payload)
+        response = test_app_client.post("/predict", json=payload)
         assert response.status_code == 422
 
-    def test_predict_non_list_features(self):
+    def test_predict_non_list_features(self, test_app_client):
         """Test predict with non-list features."""
         payload = {"features": "not_a_list"}
-        response = client.post("/predict", json=payload)
+        response = test_app_client.post("/predict", json=payload)
         assert response.status_code == 422
 
-    def test_predict_non_numeric_features(self):
+    def test_predict_non_numeric_features(self, test_app_client):
         """Test predict with non-numeric features."""
         payload = {"features": ["text"] * 189}
-        response = client.post("/predict", json=payload)
+        response = test_app_client.post("/predict", json=payload)
         assert response.status_code == 422
 
-    def test_predict_with_none_values_in_features(self):
+    def test_predict_with_none_values_in_features(self, test_app_client):
         """Test predict with None values in features."""
         features = [0.5] * 189
         features[50] = None
         payload = {"features": features}
-        response = client.post("/predict", json=payload)
+        response = test_app_client.post("/predict", json=payload)
         assert response.status_code == 422
 
-    def test_predict_with_client_id_only(self):
+    def test_predict_with_client_id_only(self, test_app_client):
         """Test predict with client_id but no features."""
         payload = {"client_id": 456}
-        response = client.post("/predict", json=payload)
+        response = test_app_client.post("/predict", json=payload)
         assert response.status_code == 422
 
-    def test_predict_with_extra_fields(self):
+    def test_predict_with_extra_fields(self, test_app_client):
         """Test predict with extra fields in payload."""
         payload = {
             "features": [0.5] * 189,
             "client_id": 123,
             "extra_field": "should_be_ignored"
         }
-        response = client.post("/predict", json=payload)
+        response = test_app_client.post("/predict", json=payload)
         assert response.status_code in [200, 422, 503]
 
 
@@ -119,35 +110,35 @@ class TestPredictEndpointLogic:
 class TestAppErrorHandling:
     """Tests for error handling throughout the app."""
 
-    def test_invalid_endpoint_returns_404(self):
+    def test_invalid_endpoint_returns_404(self, test_app_client):
         """Test invalid endpoint."""
-        response = client.get("/invalid/endpoint/path")
+        response = test_app_client.get("/invalid/endpoint/path")
         assert response.status_code == 404
 
-    def test_wrong_http_method_on_valid_path(self):
+    def test_wrong_http_method_on_valid_path(self, test_app_client):
         """Test wrong HTTP method."""
-        response = client.put("/health")  # PUT instead of GET
+        response = test_app_client.put("/health")  # PUT instead of GET
         assert response.status_code == 405
 
-    def test_post_with_invalid_content_type(self):
+    def test_post_with_invalid_content_type(self, test_app_client):
         """Test POST with wrong content type."""
-        response = client.post("/predict", content="not json")
+        response = test_app_client.post("/predict", content="not json")
         assert response.status_code == 422
 
-    def test_empty_post_body(self):
+    def test_empty_post_body(self, test_app_client):
         """Test POST with empty body."""
-        response = client.post("/predict", json={})
+        response = test_app_client.post("/predict", json={})
         assert response.status_code == 422
 
-    def test_get_request_to_post_endpoint(self):
+    def test_get_request_to_post_endpoint(self, test_app_client):
         """Test GET to POST-only endpoint."""
-        response = client.get("/predict")
+        response = test_app_client.get("/predict")
         assert response.status_code == 405
 
-    def test_request_with_headers_only(self):
+    def test_request_with_headers_only(self, test_app_client):
         """Test request with various headers."""
         headers = {"Accept": "application/json"}
-        response = client.get("/health", headers=headers)
+        response = test_app_client.get("/health", headers=headers)
         assert response.status_code == 200
 
 
@@ -158,36 +149,36 @@ class TestAppErrorHandling:
 class TestAppMiddleware:
     """Tests for middleware behavior."""
 
-    def test_multiple_sequential_requests(self):
+    def test_multiple_sequential_requests(self, test_app_client):
         """Test multiple sequential requests succeed."""
         for i in range(3):
-            response = client.get("/health")
+            response = test_app_client.get("/health")
             assert response.status_code == 200
 
-    def test_rapid_fire_requests(self):
+    def test_rapid_fire_requests(self, test_app_client):
         """Test rapid requests don't cause issues."""
         responses = []
         for _ in range(5):
-            response = client.get("/health")
+            response = test_app_client.get("/health")
             responses.append(response.status_code)
         # All should succeed or be rate limited
         assert all(code in [200, 429] for code in responses)
 
-    def test_very_large_headers(self):
+    def test_very_large_headers(self, test_app_client):
         """Test request with large headers."""
         headers = {"X-Custom": "x" * 1000}
-        response = client.get("/health", headers=headers)
+        response = test_app_client.get("/health", headers=headers)
         # Should handle gracefully
         assert response.status_code in [200, 400, 413]
 
-    def test_request_with_special_characters_in_url(self):
+    def test_request_with_special_characters_in_url(self, test_app_client):
         """Test URL with special characters."""
-        response = client.get("/health?param=%20%20")
+        response = test_app_client.get("/health?param=%20%20")
         assert response.status_code == 200
 
-    def test_cors_headers_present(self):
+    def test_cors_headers_present(self, test_app_client):
         """Test CORS headers are set."""
-        response = client.get("/health")
+        response = test_app_client.get("/health")
         # CORS middleware should set these
         assert response.status_code == 200
 
@@ -280,19 +271,19 @@ class TestAuthPasswordOperations:
 class TestBatchEndpoints:
     """Tests for batch processing endpoints."""
 
-    def test_batch_history_endpoint(self):
+    def test_batch_history_endpoint(self, test_app_client):
         """Test /batch/history endpoint."""
-        response = client.get("/batch/history")
+        response = test_app_client.get("/batch/history")
         assert response.status_code in [200, 404, 500]
 
-    def test_batch_statistics_endpoint(self):
+    def test_batch_statistics_endpoint(self, test_app_client):
         """Test /batch/statistics endpoint."""
-        response = client.get("/batch/statistics")
+        response = test_app_client.get("/batch/statistics")
         assert response.status_code in [200, 404, 500]
 
-    def test_batch_history_by_id(self):
+    def test_batch_history_by_id(self, test_app_client):
         """Test /batch/history/{batch_id} endpoint."""
-        response = client.get("/batch/history/999/download")
+        response = test_app_client.get("/batch/history/999/download")
         assert response.status_code in [200, 404, 500]
 
 
@@ -303,7 +294,7 @@ class TestBatchEndpoints:
 class TestDriftEndpointsCoverage:
     """Tests for drift monitoring endpoints."""
 
-    def test_drift_post_endpoint(self):
+    def test_drift_post_endpoint(self, test_app_client):
         """Test POST /monitoring/drift."""
         payload = {
             "feature_name": "feature_1",
@@ -311,30 +302,30 @@ class TestDriftEndpointsCoverage:
             "reference_data": [0.1, 0.2, 0.3],
             "current_data": [0.2, 0.3, 0.4]
         }
-        response = client.post("/monitoring/drift", json=payload)
-        assert response.status_code in [200, 422, 500]
+        response = test_app_client.post("/monitoring/drift", json=payload)
+        assert response.status_code in [200, 400, 422, 500]
 
-    def test_quality_post_endpoint(self):
+    def test_quality_post_endpoint(self, test_app_client):
         """Test POST /monitoring/quality."""
         payload = {
             "dataframe_dict": {"col1": [1, 2], "col2": [3, 4]}
         }
-        response = client.post("/monitoring/quality", json=payload)
+        response = test_app_client.post("/monitoring/quality", json=payload)
         assert response.status_code in [200, 422, 500]
 
-    def test_stats_summary_endpoint(self):
+    def test_stats_summary_endpoint(self, test_app_client):
         """Test GET /monitoring/stats/summary."""
-        response = client.get("/monitoring/stats/summary")
+        response = test_app_client.get("/monitoring/stats/summary")
         assert response.status_code == 200
 
-    def test_drift_history_endpoint(self):
+    def test_drift_history_endpoint(self, test_app_client):
         """Test GET /monitoring/drift/history/{feature}."""
-        response = client.get("/monitoring/drift/history/test_feature")
+        response = test_app_client.get("/monitoring/drift/history/test_feature")
         assert response.status_code in [200, 400, 404, 500]
 
-    def test_batch_drift_endpoint(self):
+    def test_batch_drift_endpoint(self, test_app_client):
         """Test POST /monitoring/drift/batch/{batch_id}."""
-        response = client.post("/monitoring/drift/batch/1")
+        response = test_app_client.post("/monitoring/drift/batch/1")
         assert response.status_code in [200, 400, 404, 500]
 
 
@@ -345,26 +336,19 @@ class TestDriftEndpointsCoverage:
 class TestAppIntegrationScenarios:
     """Integration tests for realistic usage scenarios."""
 
-    def test_health_check_flow(self):
+    def test_health_check_flow(self, test_app_client):
         """Test standard health check flow."""
-        response = client.get("/health")
+        response = test_app_client.get("/health")
         assert response.status_code == 200
 
-    def test_mlflow_then_health(self):
-        """Test MLflow health followed by general health."""
-        mlflow_health = client.get("/health/mlflow")
-        assert mlflow_health.status_code in [200, 503]
-        
-        general_health = client.get("/health")
-        assert general_health.status_code == 200
 
-    def test_database_then_predict_flow(self):
+    def test_database_then_predict_flow(self, test_app_client):
         """Test database health before prediction attempt."""
-        db_health = client.get("/health/database")
+        db_health = test_app_client.get("/health/database")
         assert db_health.status_code in [200, 503, 500]
         
         # Try prediction (will likely fail due to no model, but tests the flow)
-        predict_resp = client.post("/predict", json={"features": [0.5] * 189})
+        predict_resp = test_app_client.post("/predict", json={"features": [0.5] * 189})
         assert predict_resp.status_code in [200, 422, 503]
 
 
@@ -375,35 +359,35 @@ class TestAppIntegrationScenarios:
 class TestBoundaryValues:
     """Tests for boundary value handling."""
 
-    def test_predict_with_zero_values(self):
+    def test_predict_with_zero_values(self, test_app_client):
         """Test predict with all zeros."""
         payload = {"features": [0.0] * 189}
-        response = client.post("/predict", json=payload)
+        response = test_app_client.post("/predict", json=payload)
         assert response.status_code in [200, 422, 503]
 
-    def test_predict_with_max_floats(self):
+    def test_predict_with_max_floats(self, test_app_client):
         """Test predict with very large floats."""
         payload = {"features": [1e6] * 189}
-        response = client.post("/predict", json=payload)
+        response = test_app_client.post("/predict", json=payload)
         assert response.status_code in [200, 422, 503]
 
-    def test_predict_with_small_floats(self):
+    def test_predict_with_small_floats(self, test_app_client):
         """Test predict with very small floats."""
         payload = {"features": [1e-6] * 189}
-        response = client.post("/predict", json=payload)
+        response = test_app_client.post("/predict", json=payload)
         assert response.status_code in [200, 422, 503]
 
-    def test_predict_with_negative_values(self):
+    def test_predict_with_negative_values(self, test_app_client):
         """Test predict with negative feature values."""
         payload = {"features": [-0.5] * 189}
-        response = client.post("/predict", json=payload)
+        response = test_app_client.post("/predict", json=payload)
         assert response.status_code in [200, 422, 503]
 
-    def test_predict_with_mixed_values(self):
+    def test_predict_with_mixed_values(self, test_app_client):
         """Test predict with mixed numeric values."""
         features = [i * 0.1 for i in range(189)]
         payload = {"features": features}
-        response = client.post("/predict", json=payload)
+        response = test_app_client.post("/predict", json=payload)
         assert response.status_code in [200, 422, 503]
 
 

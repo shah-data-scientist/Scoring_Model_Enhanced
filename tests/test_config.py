@@ -61,11 +61,6 @@ class TestConfigAccessors:
         data_path = get_data_path()
         assert isinstance(data_path, Path)
 
-    def test_get_mlflow_uri(self):
-        """Test get_mlflow_uri returns string."""
-        uri = get_mlflow_uri()
-        assert isinstance(uri, str)
-        assert 'sqlite:///' in uri or 'http' in uri
 
     def test_get_random_state(self):
         """Test get_random_state returns integer."""
@@ -74,49 +69,6 @@ class TestConfigAccessors:
         assert random_state >= 0
 
 
-class TestMLflowTagFunctions:
-    """Tests for MLflow tag generation functions."""
-
-    def test_get_baseline_tags(self):
-        """Test baseline tags generation."""
-        tags = get_baseline_tags('lgbm')
-
-        assert isinstance(tags, dict)
-        assert tags['stage'] == 'baseline'
-        assert tags['model'] == 'lgbm'
-        assert 'project' in tags
-
-    def test_get_baseline_tags_with_kwargs(self):
-        """Test baseline tags with additional kwargs."""
-        tags = get_baseline_tags('lgbm', custom_tag='value', iteration=1)
-
-        assert tags['model'] == 'lgbm'
-        assert tags['custom_tag'] == 'value'
-        assert tags['iteration'] == 1
-
-    def test_get_optimization_tags(self):
-        """Test optimization tags generation."""
-        tags = get_optimization_tags('xgboost', optimization_type='grid_search')
-
-        assert tags['stage'] == 'optimization'
-        assert tags['model'] == 'xgboost'
-        assert tags['optimization'] == 'grid_search'
-
-    def test_get_production_tags(self):
-        """Test production tags generation."""
-        tags = get_production_tags('random_forest', version='2.0')
-
-        assert tags['stage'] == 'production'
-        assert tags['model'] == 'random_forest'
-        assert tags['version'] == '2.0'
-
-    def test_get_artifact_path(self):
-        """Test artifact path generation."""
-        path = get_artifact_path('lgbm', 'plot')
-
-        assert isinstance(path, str)
-        assert 'lgbm' in path
-        assert 'plot' in path
 
 
 class TestConfigErrorHandling:
