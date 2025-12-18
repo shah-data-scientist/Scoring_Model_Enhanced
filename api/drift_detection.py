@@ -10,6 +10,7 @@ Implements statistical drift detection using:
 
 import json
 from typing import Any, Dict, List, Optional, Tuple
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -17,6 +18,50 @@ from scipy import stats
 from sqlalchemy.orm import Session
 
 from backend.models import DataDrift
+
+
+# =============================================================================
+# REFERENCE DATA LOADING & CACHING
+# =============================================================================
+
+_REFERENCE_DATA_CACHE: Optional[pd.DataFrame] = None
+
+def get_training_reference_data() -> pd.DataFrame:
+    """
+    Load training and validation data from disk to serve as a reference.
+    Uses in-memory caching for performance.
+    Prefers Parquet for 10-100x faster loading.
+    """
+    global _REFERENCE_DATA_CACHE
+
+    if _REFERENCE_DATA_CACHE is not None:
+        return _REFERENCE_DATA_CACHE
+
+    processed_dir = Path(__file__).parent.parent / "data" / "processed"
+
+    try:
+        # Try Parquet first (much faster)
+        parquet_path = processed_dir / "precomputed_features.parquet"
+        if parquet_path.exists():
+            _REFERENCE_DATA_CACHE = pd.read_parquet(parquet_path).head(15000)
+            print(f"[Drift] Loaded {len(_REFERENCE_DATA_CACHE)} reference rows from Parquet")
+            return _REFERENCE_DATA_CACHE
+
+        # Fallback to CSV
+        train_path = processed_dir / "X_train.csv"
+        val_path = processed_dir / "X_val.csv"
+
+        if train_path.exists() and val_path.exists():
+            # Load a representative sample for performance
+            train_df = pd.read_csv(train_path, nrows=10000)
+            val_df = pd.read_csv(val_path, nrows=5000)
+            _REFERENCE_DATA_CACHE = pd.concat([train_df, val_df], axis=0, ignore_index=True)
+            return _REFERENCE_DATA_CACHE
+
+        return pd.DataFrame()
+    except Exception as e:
+        print(f"Error loading reference data: {e}")
+        return pd.DataFrame()
 
 
 # =============================================================================
@@ -84,20 +129,7 @@ def calculate_chi_square(reference: pd.Series, current: pd.Series) -> Tuple[floa
 
 def calculate_psi(reference: np.ndarray, current: np.ndarray, n_bins: int = 10) -> float:
     """
-    Calculate Population Stability Index (PSI).
-    
-    PSI measures the shift in a variable's distribution:
-    - PSI < 0.1: No population shift detected
-    - PSI 0.1-0.25: Small population shift
-    - PSI > 0.25: Significant population shift
-    
-    Args:
-        reference: Reference distribution
-        current: Current distribution
-        n_bins: Number of bins for histogram
-    
-    Returns:
-        PSI value
+    Calculate Population Stability Index (PSI) efficiently.
     """
     # Remove NaN values
     ref_clean = reference[~np.isnan(reference)]
@@ -107,22 +139,29 @@ def calculate_psi(reference: np.ndarray, current: np.ndarray, n_bins: int = 10) 
         return 0.0
     
     # Create bins based on reference distribution
-    breakpoints = np.percentile(ref_clean, np.linspace(0, 100, n_bins + 1))
-    breakpoints[0] = min(ref_clean.min(), curr_clean.min()) - 1e-6
-    breakpoints[-1] = max(ref_clean.max(), curr_clean.max()) + 1e-6
-    
-    # Histogram both distributions
-    ref_counts, _ = np.histogram(ref_clean, bins=breakpoints)
-    curr_counts, _ = np.histogram(curr_clean, bins=breakpoints)
-    
-    # Convert to proportions
-    ref_props = (ref_counts + 1e-10) / (ref_counts.sum() + 1e-10)
-    curr_props = (curr_counts + 1e-10) / (curr_counts.sum() + 1e-10)
-    
-    # Calculate PSI
-    psi = np.sum((curr_props - ref_props) * np.log(curr_props / ref_props))
-    
-    return float(psi)
+    try:
+        breakpoints = np.percentile(ref_clean, np.linspace(0, 100, n_bins + 1))
+        # Handle duplicate breakpoints (common in sparse data)
+        breakpoints = np.unique(breakpoints)
+        if len(breakpoints) < 2:
+            return 0.0
+            
+        breakpoints[0] = min(ref_clean.min(), curr_clean.min()) - 1e-6
+        breakpoints[-1] = max(ref_clean.max(), curr_clean.max()) + 1e-6
+        
+        # Histogram both distributions
+        ref_counts, _ = np.histogram(ref_clean, bins=breakpoints)
+        curr_counts, _ = np.histogram(curr_clean, bins=breakpoints)
+        
+        # Convert to proportions with smoothing
+        ref_props = (ref_counts + 1e-6) / (ref_counts.sum() + 1e-6)
+        curr_props = (curr_counts + 1e-6) / (curr_counts.sum() + 1e-6)
+        
+        # Calculate PSI
+        psi = np.sum((curr_props - ref_props) * np.log(curr_props / ref_props))
+        return float(psi)
+    except:
+        return 0.0
 
 
 # =============================================================================
@@ -374,6 +413,43 @@ def save_drift_results(
     db.refresh(drift_record)
     
     return drift_record
+
+
+def save_drift_results_bulk(
+    db: Session,
+    batch_drift_results: Dict[str, Dict[str, Any]],
+    batch_id: Optional[int] = None
+) -> List[DataDrift]:
+    """
+    Save multiple drift detection results to database in a single transaction.
+    
+    Args:
+        db: Database session
+        batch_drift_results: Dict mapping feature names to their drift results
+        batch_id: Optional batch ID for context
+    
+    Returns:
+        List of DataDrift database objects
+    """
+    records = []
+    for feature_name, drift_results in batch_drift_results.items():
+        drift_record = DataDrift(
+            feature_name=feature_name,
+            drift_score=drift_results.get('psi') or drift_results.get('ks_statistic'),
+            drift_type=drift_results.get('drift_test', 'unknown'),
+            is_drifted=drift_results.get('is_drifted', False),
+            reference_mean=drift_results.get('reference_mean'),
+            current_mean=drift_results.get('current_mean'),
+            reference_std=drift_results.get('reference_std'),
+            current_std=drift_results.get('current_std'),
+            batch_id=batch_id,
+            n_samples=None
+        )
+        records.append(drift_record)
+    
+    db.add_all(records)
+    db.commit()
+    return records
 
 
 def get_drift_history(

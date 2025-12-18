@@ -30,13 +30,20 @@ def render_user_management():
         st.error("🔒 Access Denied: Admin privileges required")
         return
 
-    # Create tabs
-    tab1, tab2 = st.tabs(["👥 View Users", "➕ Create User"])
+    # Create tabs using radio for persistence
+    user_mgmt_labels = ["👥 View Users", "➕ Create User"]
+    
+    if 'user_mgmt_active_tab' not in st.session_state:
+        st.session_state.user_mgmt_active_tab = user_mgmt_labels[0]
+        
+    tabs = st.tabs(user_mgmt_labels, default=st.session_state.user_mgmt_active_tab)
 
-    with tab1:
+    with tabs[0]:
+        st.session_state.user_mgmt_active_tab = user_mgmt_labels[0]
         render_user_list()
-
-    with tab2:
+        
+    with tabs[1]:
+        st.session_state.user_mgmt_active_tab = user_mgmt_labels[1]
         render_create_user()
 
 
@@ -63,7 +70,7 @@ def render_user_list():
 
                 import pandas as pd
                 df = pd.DataFrame(user_data)
-                st.dataframe(df, use_container_width=True)
+                st.dataframe(df, width="stretch")
 
                 st.write(f"**Total Users:** {len(users)}")
 
@@ -87,7 +94,7 @@ def render_user_list():
                             help="Select new role for user"
                         )
 
-                        if st.button("Update Role", use_container_width=True):
+                        if st.button("Update Role", width="stretch"):
                             try:
                                 with get_db_context() as db:
                                     user = db.query(User).filter(User.username == selected_user).first()
@@ -102,7 +109,7 @@ def render_user_list():
                     with col2:
                         st.write("Deactivate User")
 
-                        if st.button("🚫 Toggle Active Status", use_container_width=True):
+                        if st.button("🚫 Toggle Active Status", width="stretch"):
                             try:
                                 with get_db_context() as db:
                                     user = db.query(User).filter(User.username == selected_user).first()
@@ -158,7 +165,7 @@ def render_create_user():
             help="User role determines access level"
         )
 
-        submitted = st.form_submit_button("Create User", use_container_width=True)
+        submitted = st.form_submit_button("Create User", width="stretch")
 
         if submitted:
             # Validation

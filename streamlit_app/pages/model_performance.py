@@ -339,6 +339,6 @@ def render_model_performance():
                 'False Negatives': '{:,.0f}',
                 'False Positives': '{:,.0f}'
             }),
-            use_container_width=True,
+            width="stretch",
             height=300
         )

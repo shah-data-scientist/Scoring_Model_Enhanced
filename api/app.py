@@ -75,7 +75,7 @@ app.add_middleware(
 # Simple request size limit and rate limiting (in-memory, best-effort)
 MAX_REQUEST_BODY = 10 * 1024 * 1024  # 10 MB
 RATE_LIMIT_WINDOW_SEC = 60
-RATE_LIMIT_MAX_REQUESTS = 120
+RATE_LIMIT_MAX_REQUESTS = 600
 _rate_limit_store: dict[str, list[float]] = {}
 
 @app.middleware("http")
@@ -98,6 +98,8 @@ async def request_limits_middleware(request: Request, call_next):
     timestamps = [t for t in timestamps if t >= window_start]
     if len(timestamps) >= RATE_LIMIT_MAX_REQUESTS:
         from starlette.responses import Response
+        import logging
+        logging.getLogger("uvicorn").warning(f"Rate limit exceeded for IP {client_ip}")
         return Response(status_code=429, content="Too Many Requests")
     timestamps.append(now)
     _rate_limit_store[client_ip] = timestamps
@@ -315,8 +317,18 @@ async def load_model():
         print(f"Metrics precomputed successfully: {len(metrics_cache['all_metrics'])} thresholds")
     except Exception as e:
         print(f"Warning: Failed to precompute metrics: {e}")
-        print("Metrics will be computed on first API call.")
-        print("Batch predictions may be slower on first request.")
+
+    # Pre-load drift reference data
+    print("\nPre-loading drift reference data (Training + Validation)...")
+    try:
+        from api.drift_detection import get_training_reference_data
+        ref_df = get_training_reference_data()
+        if not ref_df.empty:
+            print(f"Drift reference data loaded: {len(ref_df)} rows")
+        else:
+            print("Warning: Drift reference data files not found.")
+    except Exception as e:
+        print(f"Warning: Failed to load drift reference data: {e}")
 
 
 @app.on_event("shutdown")

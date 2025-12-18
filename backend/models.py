@@ -144,20 +144,21 @@ class Prediction(Base):
     # Prediction results
     prediction = Column(Integer, nullable=False)  # 0 or 1
     probability = Column(Float, nullable=False)
-    risk_level = Column(SQLEnum(RiskLevel), nullable=False)
+    risk_level = Column(SQLEnum(RiskLevel), nullable=False, index=True)
 
     # SHAP values (optional, stored as JSON)
     shap_values = Column(JSON, nullable=True)
     top_features = Column(JSON, nullable=True)  # Top contributing features
 
     # Timestamp
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
 
     # Relationships
     batch = relationship("PredictionBatch", back_populates="predictions")
 
     __table_args__ = (
         Index('ix_predictions_batch_sk_id', 'batch_id', 'sk_id_curr'),
+        Index('ix_predictions_risk_created', 'risk_level', 'created_at'),
         UniqueConstraint('batch_id', 'sk_id_curr', name='uq_batch_application'),
     )
 

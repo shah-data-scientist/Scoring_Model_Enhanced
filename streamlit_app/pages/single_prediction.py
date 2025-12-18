@@ -124,7 +124,7 @@ def render_single_prediction():
     st.markdown("---")
 
     # Prediction button
-    if st.button("🔮 Get Prediction", use_container_width=True, type="primary"):
+    if st.button("🔮 Get Prediction", width="stretch", type="primary"):
         with st.spinner("Getting prediction..."):
             try:
                 # Prepare request
@@ -231,7 +231,7 @@ def render_single_prediction():
                                     feature_metadata=feature_metadata,
                                     max_display=15,
                                 )
-                                st.pyplot(fig, use_container_width=True)
+                                st.pyplot(fig, width="stretch")
                             except Exception as e:
                                 st.info(f"Could not render SHAP waterfall: {e}")
 

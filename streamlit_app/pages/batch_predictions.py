@@ -37,12 +37,19 @@ END_USER_TESTS_DIR = DATA_DIR / "end_user_tests"
 def render_batch_predictions():
     """Render the batch predictions interface."""
     # Create two tabs: Upload & Predict, Download Reports
-    tab1, tab2 = st.tabs(["Upload & Predict", "Download Reports"])
+    batch_labels = ["Upload & Predict", "Download Reports"]
+    
+    if 'batch_active_tab' not in st.session_state:
+        st.session_state.batch_active_tab = batch_labels[0]
+        
+    tabs = st.tabs(batch_labels, default=st.session_state.batch_active_tab)
 
-    with tab1:
+    with tabs[0]:
+        st.session_state.batch_active_tab = batch_labels[0]
         render_upload_tab()
-
-    with tab2:
+        
+    with tabs[1]:
+        st.session_state.batch_active_tab = batch_labels[1]
         render_download_reports_tab()
 
 
@@ -86,8 +93,12 @@ def render_multi_file_upload():
         'pos_cash_balance': None
     }
 
-    # Map uploaded files to required names
+    # Map uploaded files to required names - process from newest to oldest to ensure fresh files are prioritized
     if uploaded_files:
+        # Reset mapping for each run to avoid accumulation
+        for k in required_files:
+            required_files[k] = None
+            
         for uploaded_file in uploaded_files:
             file_name = uploaded_file.name.lower()
             if 'application' in file_name and 'previous' not in file_name:
@@ -135,13 +146,13 @@ def render_multi_file_upload():
             st.success(f"✅ All files loaded! {len(df)} applications found")
 
             with st.expander("Preview Application Data", expanded=False):
-                st.dataframe(df.head(10), use_container_width=True)
+                st.dataframe(df.head(10), width="stretch")
 
             # Auto-generate batch name (no user input needed)
             batch_name = f"batch_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
 
             # Process button
-            if st.button("🚀 Process Batch", use_container_width=True, type="primary", key="process_multi"):
+            if st.button("🚀 Process Batch", width="stretch", type="primary", key="process_multi"):
                 process_multi_file_batch(required_files, batch_name)
 
         except Exception as e:
@@ -315,7 +326,7 @@ def display_batch_results(result: dict, batch_name: str):
 
         display_cols = ['sk_id_curr', 'probability', 'decision', 'risk_level']
         display_cols = [c for c in display_cols if c in results_df.columns]
-        st.dataframe(results_df[display_cols], use_container_width=True)
+        st.dataframe(results_df[display_cols], width="stretch")
 
         st.info("📥 Go to **Download Reports** tab to download Excel file and detailed analysis.")
 
@@ -341,7 +352,7 @@ def render_sample_data_section():
                 file_name="sample_templates.zip",
                 mime="application/zip",
                 key="download_samples_zip",
-                use_container_width=True
+                width="stretch"
             )
         else:
             st.warning("No sample files found. Run scripts/create_sample_templates.py")
@@ -363,12 +374,13 @@ def create_zip_from_directory(directory: Path) -> bytes:
     return zip_buffer.getvalue()
 
 
+@st.cache_data(ttl=600)
 def generate_batch_excel(batch_id: int) -> bytes:
     """Generate Excel file with predictions and SHAP values for a batch."""
     try:
         response = requests.get(
             f"{API_BASE_URL}/batch/history/{batch_id}/download",
-            timeout=30
+            timeout=60
         )
 
         if response.status_code == 200:
@@ -422,12 +434,13 @@ def generate_batch_excel(batch_id: int) -> bytes:
         return None
 
 
+@st.cache_data(ttl=600)
 def generate_batch_html_report(batch_id: int, batch_name: str) -> str:
     """Generate HTML report for a batch."""
     try:
         response = requests.get(
             f"{API_BASE_URL}/batch/history/{batch_id}/download",
-            timeout=30
+            timeout=60
         )
 
         if response.status_code == 200:
@@ -447,7 +460,7 @@ def render_download_reports_tab():
     st.markdown("### Download Reports")
 
     try:
-        response = requests.get(f"{API_BASE_URL}/batch/history", timeout=10)
+        response = requests.get(f"{API_BASE_URL}/batch/history", timeout=30)
 
         if response.status_code == 200:
             data = response.json()
@@ -462,9 +475,23 @@ def render_download_reports_tab():
 
                 for batch in batches:
                     status_text = "[OK]" if batch['status'] == 'completed' else "[...]" if batch['status'] == 'processing' else "[X]"
-                    batch_name_display = batch.get('batch_name') or f"Batch_{batch.get('id', 'Unknown')}"
+                    
+                    # Custom formatting for Batch Name: Batch_ID Date Time
+                    batch_id = batch.get('id', 'Unknown')
+                    created_at_str = batch.get('created_at')
+                    if created_at_str:
+                        try:
+                            # Handle potential Z or +offset in isoformat
+                            dt_str = created_at_str.replace('Z', '+00:00')
+                            dt = datetime.fromisoformat(dt_str)
+                            formatted_dt = dt.strftime('%Y-%m-%d %H:%M:%S')
+                            batch_name_display = f"Batch_{batch_id} {formatted_dt}"
+                        except Exception:
+                            batch_name_display = batch.get('batch_name') or f"Batch_{batch_id}"
+                    else:
+                        batch_name_display = batch.get('batch_name') or f"Batch_{batch_id}"
 
-                    with st.expander(f"{status_text} {batch_name_display} (ID: {batch['id']})", expanded=False):
+                    with st.expander(f"{status_text} {batch_name_display}", expanded=False):
                         # Batch details
                         col1, col2, col3 = st.columns(3)
 
@@ -493,14 +520,14 @@ def render_download_reports_tab():
                             st.markdown("*Predictions + SHAP values*")
                             excel_data = generate_batch_excel(batch['id'])
                             if excel_data:
-                                batch_filename = batch_name_display.replace(' ', '_')
+                                # Use user-friendly filename
                                 st.download_button(
                                     label="Download Excel",
                                     data=excel_data,
-                                    file_name=f"{batch_filename}_results.xlsx",
+                                    file_name=f"{batch_name_display}.xlsx",
                                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                                     key=f"excel_{batch['id']}",
-                                    use_container_width=True
+                                    width="stretch"
                                 )
 
                         with col_html:
@@ -509,14 +536,14 @@ def render_download_reports_tab():
                             # Generate HTML and provide download button
                             html_report = generate_batch_html_report(batch['id'], batch_name_display)
                             if html_report:
-                                batch_filename = batch_name_display.replace(' ', '_')
+                                # Use user-friendly filename
                                 st.download_button(
                                     label="Download HTML Report",
                                     data=html_report,
-                                    file_name=f"{batch_filename}_analysis.html",
+                                    file_name=f"{batch_name_display}.html",
                                     mime="text/html",
                                     key=f"html_{batch['id']}",
-                                    use_container_width=True
+                                    width="stretch"
                                 )
             else:
                 st.info("No batch history found. Process your first batch in the **Upload & Predict** tab!")
@@ -748,7 +775,7 @@ def generate_detailed_html_report(predictions: list, batch_name: str) -> str:
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.href = url;
-                a.download = '{batch_name}_detail_analysis.html';
+                a.download = '{batch_name}.html';
                 document.body.appendChild(a);
                 a.click();
                 document.body.removeChild(a);

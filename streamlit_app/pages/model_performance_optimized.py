@@ -318,5 +318,5 @@ def render_model_performance():
                 'F1 Score': '{:.4f}',
                 'Business Cost': '{:,.0f}'
             }),
-            use_container_width=True
+            width="stretch"
         )

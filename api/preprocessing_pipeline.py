@@ -408,14 +408,13 @@ class PreprocessingPipeline:
                 known_mask = sk_id_curr.isin(known_ids)
                 unknown_mask = ~known_mask
 
-                # Get precomputed features for known applications
-                known_features_list = []
-                for app_id in sk_id_curr[known_mask]:
-                    known_features_list.append(self.precomputed_features.loc[app_id])
-
-                if len(known_features_list) > 0:
-                    known_features = pd.DataFrame(known_features_list)
-                    known_features['SK_ID_CURR'] = sk_id_curr[known_mask].values
+                # Get precomputed features for known applications (vectorized)
+                known_app_ids = sk_id_curr[known_mask].values
+                if len(known_app_ids) > 0:
+                    # Use .loc with array for vectorized lookup - much faster than loop
+                    known_features = self.precomputed_features.loc[known_app_ids].copy()
+                    known_features['SK_ID_CURR'] = known_app_ids
+                    known_features = known_features.reset_index(drop=True)
                 else:
                     known_features = None
 

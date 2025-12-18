@@ -34,28 +34,38 @@ def render_monitoring():
         st.error("🔒 Access Denied: Admin privileges required")
         return
 
-    # Create tabs (admin-only)
-    tab1, tab2, tab3, tab4, tab5 = st.tabs([
+    # Create tabs (admin-only) with persistence using the new 'default' parameter
+    monitoring_labels = [
         "📊 Overview",
         "🧠 Model Monitoring",
         "⚡ Performance Monitoring",
         "🔍 Data Quality",
         "⚙️ System Health"
-    ])
+    ]
+    
+    if 'monitoring_active_tab' not in st.session_state:
+        st.session_state.monitoring_active_tab = monitoring_labels[0]
+        
+    tabs = st.tabs(monitoring_labels, default=st.session_state.monitoring_active_tab)
 
-    with tab1:
+    with tabs[0]:
+        st.session_state.monitoring_active_tab = monitoring_labels[0]
         render_overview_tab()
 
-    with tab2:
+    with tabs[1]:
+        st.session_state.monitoring_active_tab = monitoring_labels[1]
         render_model_monitoring_tab()
 
-    with tab3:
+    with tabs[2]:
+        st.session_state.monitoring_active_tab = monitoring_labels[2]
         render_performance_monitoring_tab()
 
-    with tab4:
+    with tabs[3]:
+        st.session_state.monitoring_active_tab = monitoring_labels[3]
         render_data_quality_tab()
 
-    with tab5:
+    with tabs[4]:
+        st.session_state.monitoring_active_tab = monitoring_labels[4]
         render_system_health_tab()
 
 
@@ -65,11 +75,10 @@ def render_overview_tab():
 
     # Fetch statistics
     try:
-        # Keep timeouts short to avoid persistent Streamlit spinner if API is down
-        stats_response = requests.get(f"{API_BASE_URL}/batch/statistics", timeout=2)
-        health_response = requests.get(f"{API_BASE_URL}/health", timeout=2)
-        db_health_response = requests.get(f"{API_BASE_URL}/health/database", timeout=2)
-
+        # Keep timeouts short but reasonable
+        stats_response = requests.get(f"{API_BASE_URL}/batch/statistics", timeout=10)
+        health_response = requests.get(f"{API_BASE_URL}/health", timeout=10)
+        db_health_response = requests.get(f"{API_BASE_URL}/health/database", timeout=10)
         if stats_response.status_code == 200 and health_response.status_code == 200:
             stats = stats_response.json()
             health = health_response.json()
@@ -152,7 +161,7 @@ def render_overview_tab():
                         },
                         title="Overall Risk Distribution"
                     )
-                    st.plotly_chart(fig, use_container_width=True)
+                    st.plotly_chart(fig, width="stretch")
 
                 # Daily predictions chart
                 daily = stats.get('daily_predictions', [])
@@ -165,7 +174,7 @@ def render_overview_tab():
                         title='Daily Prediction Volume',
                         labels={'date': 'Date', 'count': 'Predictions'}
                     )
-                    st.plotly_chart(fig, use_container_width=True)
+                    st.plotly_chart(fig, width="stretch")
 
         else:
             st.error("Failed to fetch system statistics")
@@ -194,7 +203,7 @@ def render_model_monitoring_tab():
     st.markdown("### 🧠 Model Monitoring")
 
     try:
-        response = requests.get(f"{API_BASE_URL}/batch/history?limit=100", timeout=2)
+        response = requests.get(f"{API_BASE_URL}/batch/history?limit=100", timeout=10)
 
         if response.status_code == 200:
             data = response.json()
@@ -219,7 +228,7 @@ def render_model_monitoring_tab():
                 st.subheader("Recent Batches")
                 display_cols = ['id', 'batch_name', 'status', 'total_applications', 'avg_probability']
                 display_cols = [c for c in display_cols if c in df.columns]
-                st.dataframe(df[display_cols], use_container_width=True)
+                st.dataframe(df[display_cols], width="stretch")
 
                 if 'avg_probability' in df.columns:
                     fig = px.line(
@@ -229,7 +238,7 @@ def render_model_monitoring_tab():
                         title='Average Default Probability by Batch',
                         markers=True
                     )
-                    st.plotly_chart(fig, use_container_width=True)
+                    st.plotly_chart(fig, width="stretch")
             else:
                 st.info("No batch data available yet.")
 
@@ -252,8 +261,8 @@ def render_performance_monitoring_tab():
 
     try:
         # Fast health endpoint for latency
-        health_resp = requests.get(f"{API_BASE_URL}/health", timeout=2)
-        stats_resp = requests.get(f"{API_BASE_URL}/batch/statistics", timeout=2)
+        health_resp = requests.get(f"{API_BASE_URL}/health", timeout=10)
+        stats_resp = requests.get(f"{API_BASE_URL}/batch/statistics", timeout=10)
 
         if health_resp.status_code == 200:
             health = health_resp.json()
@@ -292,47 +301,82 @@ def render_data_quality_tab():
     st.markdown("### 🔍 Data Quality & Drift Detection")
 
     # Tab within the tab for different views
-    sub_tab1, sub_tab2, sub_tab3 = st.tabs([
+    quality_labels = [
         "📊 Feature Drift",
         "✔️ Data Quality",
         "📈 Drift History"
-    ])
+    ]
+    
+    if 'quality_active_tab' not in st.session_state:
+        st.session_state.quality_active_tab = quality_labels[0]
+        
+    tabs = st.tabs(quality_labels, default=st.session_state.quality_active_tab)
 
-    with sub_tab1:
+    with tabs[0]:
+        st.session_state.quality_active_tab = quality_labels[0]
         render_drift_detection()
 
-    with sub_tab2:
+    with tabs[1]:
+        st.session_state.quality_active_tab = quality_labels[1]
         render_data_quality_checks()
 
-    with sub_tab3:
+    with tabs[2]:
+        st.session_state.quality_active_tab = quality_labels[2]
         render_drift_history()
 
 
 def render_drift_detection():
-    """Render feature drift detection."""
+    """Render feature drift detection with dropdown selection and tabular results."""
     st.subheader("📊 Feature Drift Detection")
     
     st.info("""
-    This uses statistical tests to detect distribution changes:
+    This uses statistical tests to detect distribution changes between a batch and the training data:
     - **KS Test**: For numeric features (p-value < 0.05 = drift)
-    - **Chi-square**: For categorical features
     - **PSI**: Population Stability Index (>0.25 = significant drift)
     """)
 
-    col1, col2 = st.columns(2)
+    # Fetch available batches for dropdown
+    try:
+        response = requests.get(f"{API_BASE_URL}/batch/history?limit=100", timeout=15)
+        if response.status_code == 200:
+            batches = response.json().get('batches', [])
+            batch_options = {f"Batch {b['id']} - {b['batch_name']}": b['id'] for b in batches if b['status'] == 'completed'}
+        else:
+            batch_options = {}
+    except:
+        batch_options = {}
 
-    with col1:
-        batch_id = st.number_input("Batch ID to analyze", min_value=1, step=1)
-        reference_batch_id = st.number_input("Reference Batch ID (optional)", min_value=0, step=1)
+    if not batch_options:
+        st.warning("No completed batches found for analysis.")
+        return
 
-    with col2:
-        alert_threshold = st.slider("Alert Threshold (p-value)", 0.01, 0.1, 0.05)
-        if st.button("🔍 Analyze Drift"):
-            analyze_batch_drift(batch_id, reference_batch_id, alert_threshold)
+    with st.form("drift_detection_form"):
+        col1, col2 = st.columns(2)
 
-    # Display recent drift results
+        with col1:
+            selected_batch_label = st.selectbox(
+                "Select Batch to analyze",
+                options=list(batch_options.keys()),
+                help="Choose a completed batch to compare against training data."
+            )
+            
+            st.text_input("Reference Data", value="Training + Validation Data", disabled=True, 
+                         help="The reference is fixed to the baseline training/validation dataset.")
+
+        with col2:
+            alert_threshold = st.slider("Alert Threshold (p-value)", 0.01, 0.1, 0.05, 
+                                      help="P-values below this threshold signal statistical drift.")
+            
+            submit_drift = st.form_submit_button("🔍 Analyze Drift", type="primary", use_container_width=True)
+
+    if submit_drift:
+        batch_id = batch_options[selected_batch_label]
+        # Pass 0 or None for reference_batch_id to trigger Training Data logic in API
+        analyze_batch_drift(batch_id, 0, alert_threshold)
+
+    # Display recent drift results summary
     st.markdown("---")
-    st.subheader("📋 Recent Drift Results")
+    st.subheader("📋 System-wide Drift Summary")
 
     try:
         response = requests.get(f"{API_BASE_URL}/monitoring/stats/summary", timeout=5)
@@ -340,84 +384,85 @@ def render_drift_detection():
             stats = response.json()
 
             col1, col2, col3 = st.columns(3)
-            col1.metric(
-                "Features Checked",
-                stats['data_drift']['total_features_checked'],
-                help="Total features analyzed for drift"
-            )
-            col2.metric(
-                "Features with Drift",
-                stats['data_drift']['features_with_drift'],
-                help="Number of features showing drift"
-            )
-            col3.metric(
-                "Drift Rate",
-                f"{stats['data_drift']['drift_percentage']:.1f}%",
-                help="Percentage of features with drift"
-            )
-
+            col1.metric("Features Checked", stats['data_drift']['total_features_checked'])
+            col2.metric("Features with Drift", stats['data_drift']['features_with_drift'])
+            col3.metric("Drift Rate", f"{stats['data_drift']['drift_percentage']:.1f}%")
     except:
-        st.info("Drift analysis data not available yet. Analyze a batch to see results.")
+        st.info("Global drift summary unavailable.")
 
 
 def analyze_batch_drift(batch_id: int, reference_batch_id: int, alert_threshold: float):
-    """Analyze drift for a batch."""
-    if reference_batch_id == 0:
-        st.warning("Please select a reference batch for comparison")
-        return
-
+    """Analyze drift for a batch and display in a tabular format."""
     try:
-        with st.spinner("Analyzing drift..."):
+        with st.spinner("🚀 Performing statistical drift analysis..."):
+            # reference_batch_id=0 triggers training data reference in our updated API
+            params = {"reference_batch_id": reference_batch_id} if reference_batch_id > 0 else {}
+            
             response = requests.post(
                 f"{API_BASE_URL}/monitoring/drift/batch/{batch_id}",
-                params={"reference_batch_id": reference_batch_id},
-                timeout=30
+                params=params,
+                timeout=60
             )
 
             if response.status_code == 200:
                 results = response.json()
+                
+                st.success(f"✅ Analysis Complete: {results['features_checked']} features checked.")
+                
+                # Tabular results preparation
+                drift_data = []
+                for feature, r in results['results'].items():
+                    drift_data.append({
+                        "Status": "🔴 DRIFT" if r['is_drifted'] else "✅ OK",
+                        "Feature Name": feature,
+                        "KS Statistic": r.get('ks_statistic', 0),
+                        "P-Value": r.get('p_value', 0),
+                        "PSI": r.get('psi', 0),
+                        "Ref Mean": r.get('reference_mean', 0),
+                        "Batch Mean": r.get('current_mean', 0),
+                        "Interpretation": r.get('interpretation', "")
+                    })
+                
+                df_results = pd.DataFrame(drift_data)
+                
+                # Summary metrics for THIS analysis
+                c1, c2, c3 = st.columns(3)
+                c1.metric("Features Checked", results['features_checked'])
+                c2.metric("Drifted Features", results['features_drifted'])
+                drift_rate = (results['features_drifted'] / max(results['features_checked'], 1))
+                c3.metric("Batch Drift Rate", f"{drift_rate:.1%}")
 
-                st.success(f"✅ Analyzed {results['features_checked']} features")
-
-                # Summary cards
-                col1, col2, col3 = st.columns(3)
-                col1.metric("Features Checked", results['features_checked'])
-                col2.metric("Drifted Features", results['features_drifted'])
-                col3.metric("Drift Rate", f"{(results['features_drifted'] / max(results['features_checked'], 1) * 100):.1f}%")
-
-                # Detailed results
-                st.markdown("---")
-                st.subheader("📊 Feature-Level Results")
-
-                for feature_name, drift_result in results['results'].items():
-                    with st.expander(f"{'🔴' if drift_result['is_drifted'] else '✅'} {feature_name}"):
-                        col1, col2, col3 = st.columns(3)
-
-                        if drift_result['feature_type'] == 'numeric':
-                            col1.metric("KS Statistic", f"{drift_result['ks_statistic']:.4f}")
-                            col2.metric("PSI", f"{drift_result['psi']:.4f}")
-                            col3.metric("P-value", f"{drift_result['p_value']:.4f}")
-
-                            st.metric("Reference Mean", f"{drift_result['reference_mean']:.4f}")
-                            st.metric("Current Mean", f"{drift_result['current_mean']:.4f}")
-                        else:
-                            col1.metric("Chi-square", f"{drift_result['chi2_statistic']:.4f}")
-                            col2.metric("P-value", f"{drift_result['p_value']:.4f}")
-
-                        st.write(f"**Status**: {drift_result['interpretation']}")
+                st.markdown("### 📊 Detailed Results Table")
+                # Add highlighting for drifted features
+                def highlight_drift(s):
+                    return ['background-color: #ffcccc' if v == "🔴 DRIFT" else '' for v in s]
+                
+                st.dataframe(
+                    df_results.style.apply(highlight_drift, subset=['Status']),
+                    width="stretch",
+                    height=500
+                )
+                
+                # Export option
+                csv = df_results.to_csv(index=False).encode('utf-8')
+                st.download_button(
+                    "📥 Export Results to CSV",
+                    csv,
+                    f"drift_analysis_batch_{batch_id}.csv",
+                    "text/csv",
+                    key='download-csv'
+                )
 
             else:
                 st.error(f"Error: {response.json().get('detail', 'Unknown error')}")
 
-    except requests.exceptions.Timeout:
-        st.error("Request timed out. Large batches may take longer to analyze.")
     except Exception as e:
-        st.error(f"Error analyzing drift: {str(e)}")
+        st.error(f"Analysis failed: {str(e)}")
 
 
 def render_data_quality_checks():
-    """Render data quality checks."""
-    st.subheader("✔️ Data Quality Checks")
+    """Render data quality checks with dropdown selection."""
+    st.subheader("✔️ Data Quality Analysis")
 
     st.info("""
     Automated checks for data integrity:
@@ -426,9 +471,33 @@ def render_data_quality_checks():
     - **Schema Validation**: Ensures all expected columns present
     """)
 
-    batch_id = st.number_input("Batch ID to check quality", min_value=1, step=1, key="quality_batch")
+    # Fetch available batches for dropdown
+    try:
+        response = requests.get(f"{API_BASE_URL}/batch/history?limit=100", timeout=15)
+        if response.status_code == 200:
+            batches = response.json().get('batches', [])
+            batch_options = {f"Batch {b['id']} - {b['batch_name']}": b['id'] for b in batches if b['status'] == 'completed'}
+        else:
+            batch_options = {}
+    except:
+        batch_options = {}
 
-    if st.button("✔️ Check Quality"):
+    if not batch_options:
+        st.warning("No completed batches found for quality check.")
+        return
+
+    with st.form("data_quality_form"):
+        selected_batch_label = st.selectbox(
+            "Select Batch to check",
+            options=list(batch_options.keys()),
+            key="quality_batch_select",
+            help="Choose a completed batch to analyze its data quality."
+        )
+        
+        submit_quality = st.form_submit_button("🔍 Analyze Data Quality", type="primary", use_container_width=True)
+
+    if submit_quality:
+        batch_id = batch_options[selected_batch_label]
         check_data_quality(batch_id)
 
 
@@ -460,7 +529,7 @@ def check_data_quality(batch_id: int):
                     "check_range": True,
                     "check_schema": False
                 }),
-                timeout=10
+                timeout=30
             )
 
             if response.status_code == 200:
@@ -504,7 +573,7 @@ def check_data_quality(batch_id: int):
                     )
                     st.dataframe(
                         top_missing[['Feature', 'Missing %', 'Status']], 
-                        use_container_width=True,
+                        width="stretch",
                         hide_index=True
                     )
                     
@@ -513,7 +582,7 @@ def check_data_quality(batch_id: int):
                         with st.expander(f"📋 View all {len(high_missing)} features with >20% missing"):
                             st.dataframe(
                                 high_missing[['Feature', 'Missing %']], 
-                                use_container_width=True,
+                                width="stretch",
                                 hide_index=True
                             )
 
@@ -529,7 +598,7 @@ def check_data_quality(batch_id: int):
                             'Status': info['status']
                         })
                     issues_df = pd.DataFrame(issues)
-                    st.dataframe(issues_df, use_container_width=True)
+                    st.dataframe(issues_df, width="stretch")
 
             else:
                 st.error(f"Quality check failed: {response.json().get('detail')}")
@@ -556,7 +625,7 @@ def render_drift_history():
         response = requests.get(
             f"{API_BASE_URL}/monitoring/drift/history/{feature_name}",
             params={"limit": 30},
-            timeout=5
+            timeout=15
         )
 
         if response.status_code == 200:
@@ -570,11 +639,11 @@ def render_drift_history():
                 # Plot drift scores over time
                 st.line_chart(
                     history_df.set_index('recorded_at')['drift_score'],
-                    use_container_width=True
+                    width="stretch"
                 )
 
                 # Data table
-                st.dataframe(history_df, use_container_width=True)
+                st.dataframe(history_df, width="stretch")
 
             else:
                 st.info(f"No drift history available for {feature_name}")
@@ -592,8 +661,8 @@ def render_system_health_tab():
 
     try:
         # API Health
-        health_response = requests.get(f"{API_BASE_URL}/health", timeout=5)
-        db_health_response = requests.get(f"{API_BASE_URL}/health/database", timeout=5)
+        health_response = requests.get(f"{API_BASE_URL}/health", timeout=15)
+        db_health_response = requests.get(f"{API_BASE_URL}/health/database", timeout=15)
 
         if health_response.status_code == 200:
             health = health_response.json()

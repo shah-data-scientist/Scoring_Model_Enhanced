@@ -78,17 +78,21 @@ if 'auth_initialized' not in st.session_state:
 
 
 def render_header():
-    """Render the header with user info."""
+    """Render the header with user info and logout."""
     # Get user from session state
     username = st.session_state.get('username')
     user_role = st.session_state.get('user_role')
 
     if username and user_role:
-        col1, col2 = st.columns([6, 3])
+        col1, col2, col3 = st.columns([6, 2, 1])
         with col1:
             st.markdown("### 🏦 Credit Scoring Dashboard")
         with col2:
             st.markdown(f"👤 **{username}** ({user_role})")
+        with col3:
+            if st.button("🚪 Logout"):
+                logout_user()
+                st.rerun()
         st.markdown("---")
 
 
@@ -103,7 +107,7 @@ def main():
     
     # User is authenticated - ensure login page is NOT showing
     if st.session_state.get('showing_login', False):
-        st.session_state.showing_login = False
+        st.session_state.session_state.showing_login = False
 
     # Track if this is a fresh session (first load after login)
     if 'initial_load_complete' not in st.session_state:
@@ -131,31 +135,45 @@ def main():
                     pass  # API might not be running - that's OK
             st.session_state.initial_load_complete = True
 
-        # Create tab-based navigation
+        # Create tab-based navigation with state persistence using the new 'default' parameter
         if is_admin:
-            # Admin has 3 tabs
-            tab1, tab2, tab3 = st.tabs(["📈 Model Performance", "📁 Batch Predictions", "📉 Monitoring"])
+            tab_labels = ["📈 Model Performance", "📁 Batch Predictions", "📉 Monitoring"]
+            
+            # Use session state to track active tab by label
+            if 'main_active_tab' not in st.session_state:
+                st.session_state.main_active_tab = tab_labels[0]
+                
+            tabs = st.tabs(tab_labels, default=st.session_state.main_active_tab)
 
-            with tab1:
+            with tabs[0]:
+                st.session_state.main_active_tab = tab_labels[0]
                 logger.info("Rendering Model Performance tab")
                 render_model_performance_page()
 
-            with tab2:
+            with tabs[1]:
+                st.session_state.main_active_tab = tab_labels[1]
                 logger.info("Rendering Batch Predictions tab")
                 render_batch_predictions_page()
 
-            with tab3:
+            with tabs[2]:
+                st.session_state.main_active_tab = tab_labels[2]
                 logger.info("Rendering Monitoring tab")
                 render_monitoring_page()
         else:
-            # Analyst has 2 tabs only
-            tab1, tab2 = st.tabs(["📈 Model Performance", "📁 Batch Predictions"])
+            tab_labels = ["📈 Model Performance", "📁 Batch Predictions"]
+            
+            if 'main_active_tab' not in st.session_state:
+                st.session_state.main_active_tab = tab_labels[0]
 
-            with tab1:
+            tabs = st.tabs(tab_labels, default=st.session_state.main_active_tab)
+
+            with tabs[0]:
+                st.session_state.main_active_tab = tab_labels[0]
                 logger.info("Rendering Model Performance tab")
                 render_model_performance_page()
 
-            with tab2:
+            with tabs[1]:
+                st.session_state.main_active_tab = tab_labels[1]
                 logger.info("Rendering Batch Predictions tab")
                 render_batch_predictions_page()
 

@@ -24,20 +24,17 @@ session_manager = SessionManager(session_timeout_hours=8)
 
 
 def init_auth_session():
-    """Initialize authentication session state variables.
-    
-    TEMPORARY: Authentication is disabled, giving admin rights by default.
-    """
+    """Initialize authentication session state variables."""
     if 'authenticated' not in st.session_state:
-        st.session_state.authenticated = True
+        st.session_state.authenticated = False
     if 'username' not in st.session_state:
-        st.session_state.username = "admin"
+        st.session_state.username = None
     if 'user_role' not in st.session_state:
-        st.session_state.user_role = UserRole.ADMIN.value
+        st.session_state.user_role = None
     if 'user_email' not in st.session_state:
-        st.session_state.user_email = "admin@example.com"
+        st.session_state.user_email = None
     if 'session_token' not in st.session_state:
-        st.session_state.session_token = "dev_session_token"
+        st.session_state.session_token = None
     if 'showing_login' not in st.session_state:
         st.session_state.showing_login = False
 
@@ -167,7 +164,7 @@ def login_page():
         username = st.text_input("Username", placeholder="Enter your username", key="login_username")
         password = st.text_input("Password", type="password", placeholder="Enter your password", key="login_password")
 
-        submitted = st.form_submit_button("Login", use_container_width=True, type="primary")
+        submitted = st.form_submit_button("Login", width="stretch", type="primary")
 
         if submitted:
             if not username or not password:
@@ -201,6 +198,6 @@ def render_user_sidebar():
         st.sidebar.write(f"**Username:** {st.session_state.username}")
         st.sidebar.write(f"**Role:** {st.session_state.user_role}")
 
-        if st.sidebar.button("🚪 Logout", use_container_width=True):
+        if st.sidebar.button("🚪 Logout", width="stretch"):
             logout_user()
             st.rerun()

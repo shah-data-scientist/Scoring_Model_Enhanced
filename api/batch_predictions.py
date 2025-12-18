@@ -13,7 +13,7 @@ import io
 import logging
 import time
 from datetime import datetime
-from pathlib import Path # Added missing import
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -31,6 +31,14 @@ from api.utils.logging import setup_production_logger, log_batch_prediction, log
 from backend import crud
 from backend.database import get_db
 
+# Import SHAP once at module level for performance
+try:
+    import shap
+    SHAP_AVAILABLE = True
+except ImportError:
+    SHAP_AVAILABLE = False
+    shap = None
+
 # Load the full list of 189 model features
 PROJECT_ROOT = Path(__file__).parent.parent
 CONFIG_DIR = PROJECT_ROOT / "config"
@@ -46,16 +54,45 @@ logger = logging.getLogger(__name__)
 MAX_UPLOAD_SIZE_BYTES = 50 * 1024 * 1024  # 50 MB
 
 # Global preprocessing pipeline
-preprocessing_pipeline = None
+_preprocessing_pipeline = None
+
+# Cached SHAP explainer for performance
+_shap_explainer = None
+_shap_explainer_model_id = None
 
 
 def get_preprocessing_pipeline():
-    """Get or create preprocessing pipeline instance."""
-    global preprocessing_pipeline
-    if preprocessing_pipeline is None:
-        # Disable precomputed cache to ensure consistent predictions
-        preprocessing_pipeline = PreprocessingPipeline(use_precomputed=False)
-    return preprocessing_pipeline
+    """Get or create preprocessing pipeline instance (Singleton)."""
+    global _preprocessing_pipeline
+    if _preprocessing_pipeline is None:
+        logger.info("Initializing PreprocessingPipeline (optimized mode with precomputed features)...")
+        _preprocessing_pipeline = PreprocessingPipeline(use_precomputed=True)
+    return _preprocessing_pipeline
+
+
+def get_shap_explainer(model):
+    """Get or create cached SHAP explainer for performance."""
+    global _shap_explainer, _shap_explainer_model_id
+
+    if not SHAP_AVAILABLE:
+        return None
+
+    # ONNX models don't support TreeExplainer
+    from api.onnx_wrapper import ONNXModelWrapper
+    if isinstance(model, ONNXModelWrapper):
+        return None
+
+    model_id = id(model)
+    if _shap_explainer is None or _shap_explainer_model_id != model_id:
+        try:
+            _shap_explainer = shap.TreeExplainer(model)
+            _shap_explainer_model_id = model_id
+            logger.info("SHAP TreeExplainer initialized and cached")
+        except Exception as e:
+            logger.warning(f"Failed to create SHAP explainer: {e}")
+            return None
+
+    return _shap_explainer
 
 
 # ============================================================================
@@ -280,8 +317,10 @@ async def predict_batch(
 
         # Step 2: Validate files
         try:
+            t_start = time.time()
             dataframes = validate_all_files(uploaded_files)
             summaries = get_file_summaries(dataframes)
+            logger.info(f"TIMING: Validation and summarization took {time.time() - t_start:.2f}s")
         except HTTPException:
             raise
         except Exception as e:
@@ -301,20 +340,24 @@ async def predict_batch(
 
         # Step 4: Store raw application data in database
         try:
+            t_start = time.time()
             app_records = dataframes['application.csv'].to_dict('records')
             crud.store_raw_applications_bulk(db, batch.id, app_records)
+            logger.info(f"TIMING: Storing raw data took {time.time() - t_start:.2f}s")
         except Exception as e:
-            print(f"Warning: Failed to store raw data: {e}")
+            logger.error(f"Error storing raw data: {e}", exc_info=True)
             # Continue anyway - predictions are more important
 
         # Step 5: Preprocess data
         try:
+            t_start = time.time()
             pipeline = get_preprocessing_pipeline()
             features_df, sk_id_curr = pipeline.process(dataframes, keep_sk_id=False)
 
             # Ensure features are in correct format
             X = features_df.values
             feature_names = list(features_df.columns)
+            logger.info(f"TIMING: Preprocessing took {time.time() - t_start:.2f}s")
 
         except Exception as e:
             crud.fail_batch(db, batch.id, f"Preprocessing failed: {str(e)}")
@@ -325,8 +368,10 @@ async def predict_batch(
 
         # Step 6: Make predictions
         try:
+            t_start = time.time()
             predictions = model.predict(X)
             probabilities = model.predict_proba(X)[:, 1]
+            logger.info(f"TIMING: Model prediction took {time.time() - t_start:.2f}s")
 
         except Exception as e:
             crud.fail_batch(db, batch.id, f"Prediction failed: {str(e)}")
@@ -336,56 +381,78 @@ async def predict_batch(
             )
 
         # Step 6.5: Compute SHAP values (optional, for explainability)
+        # Skip for large batches (> 20 applications) to ensure performance
         shap_values_list = None
-        try:
-            import shap
-            # Use TreeExplainer for LightGBM/XGBoost
-            explainer = shap.TreeExplainer(model)
-            shap_values = explainer.shap_values(X)
+        if SHAP_AVAILABLE and len(X) <= 20:
+            try:
+                t_start = time.time()
+                # Use cached explainer for performance
+                explainer = get_shap_explainer(model)
+                if explainer is not None:
+                    shap_values = explainer.shap_values(X)
 
-            # For binary classification, get values for positive class
-            if isinstance(shap_values, list):
-                shap_values = shap_values[1]  # Class 1 (default)
+                    # For binary classification, get values for positive class
+                    if isinstance(shap_values, list):
+                        shap_values = shap_values[1]  # Class 1 (default)
 
-            shap_values_list = shap_values
-            print(f"Computed SHAP values for {len(shap_values)} predictions")
+                    shap_values_list = shap_values
+                    logger.info(f"TIMING: SHAP computation took {time.time() - t_start:.2f}s for {len(X)} predictions")
 
-        except Exception as e:
-            print(f"Warning: Failed to compute SHAP values: {e}")
-            shap_values_list = None
+            except Exception as e:
+                logger.warning(f"SHAP computation skipped: {e}")
+                shap_values_list = None
+        elif len(X) > 20:
+            logger.info(f"Skipping SHAP for batch size {len(X)} (limit: 20) to ensure performance")
 
         # Step 7: Create results
         results_df = create_results_dataframe(sk_id_curr, predictions, probabilities)
 
-        # Step 8: Store predictions in database with SHAP values
-        predictions_data = []
-        for i, (_, row) in enumerate(results_df.iterrows()):
-            pred_data = {
-                'sk_id_curr': int(row['SK_ID_CURR']),
-                'prediction': int(row['PREDICTION']),
-                'probability': float(row['PROBABILITY']),
-                'risk_level': row['RISK_LEVEL']
-            }
+        # Step 8: Store predictions in database with SHAP values (vectorized)
+        try:
+            t_start = time.time()
 
-            # Add SHAP values if available
-            if shap_values_list is not None:
-                shap_dict = {}
-                for j, feat_name in enumerate(feature_names):
-                    # Convert NaN to None for JSON serialization
-                    shap_val = float(shap_values_list[i, j])
-                    shap_dict[feat_name] = None if (np.isnan(shap_val) or np.isinf(shap_val)) else shap_val
-                pred_data['shap_values'] = shap_dict
+            # Vectorized data extraction - avoid iterrows()
+            sk_ids = results_df['SK_ID_CURR'].values
+            preds = results_df['PREDICTION'].values
+            probs = results_df['PROBABILITY'].values
+            risks = results_df['RISK_LEVEL'].values
 
-                # Get top 10 features by absolute SHAP value (excluding NaN/inf)
-                valid_features = [(f, v) for f, v in shap_dict.items() if v is not None]
-                sorted_features = sorted(valid_features, key=lambda x: abs(x[1]), reverse=True)[:10]
-                pred_data['top_features'] = [{'feature': f, 'shap_value': v} for f, v in sorted_features]
+            predictions_data = []
+            for i in range(len(sk_ids)):
+                pred_data = {
+                    'sk_id_curr': int(sk_ids[i]),
+                    'prediction': int(preds[i]),
+                    'probability': float(probs[i]),
+                    'risk_level': risks[i]
+                }
 
-            predictions_data.append(pred_data)
+                # Add SHAP values if available
+                if shap_values_list is not None:
+                    shap_row = shap_values_list[i]
+                    # Vectorized NaN/inf check
+                    valid_mask = ~(np.isnan(shap_row) | np.isinf(shap_row))
+                    shap_dict = {feat_name: (float(shap_row[j]) if valid_mask[j] else None)
+                                 for j, feat_name in enumerate(feature_names)}
+                    pred_data['shap_values'] = shap_dict
 
-        # Sanitize predictions data for JSON storage
-        predictions_data_safe = [sanitize_for_json(pred) for pred in predictions_data]
-        crud.create_predictions_bulk(db, batch.id, predictions_data_safe)
+                    # Get top 10 features by absolute SHAP value
+                    abs_shap = np.abs(np.where(valid_mask, shap_row, 0))
+                    top_indices = np.argsort(abs_shap)[-10:][::-1]
+                    pred_data['top_features'] = [
+                        {'feature': feature_names[j], 'shap_value': float(shap_row[j])}
+                        for j in top_indices if valid_mask[j]
+                    ]
+
+                predictions_data.append(pred_data)
+
+            # Sanitize predictions data for JSON storage
+            predictions_data_safe = [sanitize_for_json(pred) for pred in predictions_data]
+            crud.create_predictions_bulk(db, batch.id, predictions_data_safe)
+            logger.info(f"TIMING: Result storage and post-processing took {time.time() - t_start:.2f}s")
+        except Exception as e:
+            logger.error(f"Error in result storage: {e}", exc_info=True)
+            # Non-critical if we already have predictions in memory to return
+            # but we need them in DB for history
 
         # Step 9: Calculate risk counts and complete batch
         risk_counts = {
@@ -471,100 +538,36 @@ async def get_batch_history(
     limit: int = 50,
     db: Session = Depends(get_db)
 ):
-    """Get recent batch prediction history.
+    """Get recent batch prediction history with thread offloading."""
+    def _fetch_history():
+        batches = crud.get_recent_batches(db, skip=skip, limit=limit)
+        return {
+            "success": True,
+            "count": len(batches),
+            "batches": [
+                {
+                    "id": b.id,
+                    "batch_name": b.batch_name,
+                    "status": b.status.value,
+                    "total_applications": b.total_applications,
+                    "processed_applications": b.processed_applications,
+                    "avg_probability": b.avg_probability,
+                    "risk_distribution": {
+                        "LOW": b.risk_low_count,
+                        "MEDIUM": b.risk_medium_count,
+                        "HIGH": b.risk_high_count,
+                        "CRITICAL": b.risk_critical_count
+                    },
+                    "processing_time_seconds": b.processing_time_seconds,
+                    "created_at": b.created_at.isoformat() if b.created_at else None,
+                    "completed_at": b.completed_at.isoformat() if b.completed_at else None
+                }
+                for b in batches
+            ]
+        }
 
-    Args:
-        skip: Number of records to skip (pagination)
-        limit: Maximum records to return
-
-    Returns:
-        List of recent batches with summary info
-
-    """
-    batches = crud.get_recent_batches(db, skip=skip, limit=limit)
-
-    return {
-        "success": True,
-        "count": len(batches),
-        "batches": [
-            {
-                "id": b.id,
-                "batch_name": b.batch_name,
-                "status": b.status.value,
-                "total_applications": b.total_applications,
-                "processed_applications": b.processed_applications,
-                "avg_probability": b.avg_probability,
-                "risk_distribution": {
-                    "LOW": b.risk_low_count,
-                    "MEDIUM": b.risk_medium_count,
-                    "HIGH": b.risk_high_count,
-                    "CRITICAL": b.risk_critical_count
-                },
-                "processing_time_seconds": b.processing_time_seconds,
-                "created_at": b.created_at.isoformat() if b.created_at else None,
-                "completed_at": b.completed_at.isoformat() if b.completed_at else None
-            }
-            for b in batches
-        ]
-    }
-
-
-# UNUSED: Single batch details endpoint not used by Streamlit
-# @router.get("/history/{batch_id}")
-# async def get_batch_details(
-#     batch_id: int,
-#     db: Session = Depends(get_db)
-# ):
-#     """Get detailed information about a specific batch.
-#
-#     Args:
-#         batch_id: The batch ID
-#
-#     Returns:
-#         Batch details with all predictions
-#
-#     """
-#     batch = crud.get_batch(db, batch_id)
-#
-#     if not batch:
-#         raise HTTPException(
-#             status_code=status.HTTP_404_NOT_FOUND,
-#             detail=f"Batch {batch_id} not found"
-#         )
-#
-#     # Get predictions for this batch
-#     predictions = crud.get_batch_predictions(db, batch_id)
-#
-#     return {
-#         "success": True,
-#         "batch": {
-#             "id": batch.id,
-#             "batch_name": batch.batch_name,
-#             "status": batch.status.value,
-#             "total_applications": batch.total_applications,
-#             "processed_applications": batch.processed_applications,
-#             "avg_probability": batch.avg_probability,
-#             "risk_distribution": {
-#                 "LOW": batch.risk_low_count,
-#                 "MEDIUM": batch.risk_medium_count,
-#                 "HIGH": batch.risk_high_count,
-#                 "CRITICAL": batch.risk_critical_count
-#             },
-#             "processing_time_seconds": batch.processing_time_seconds,
-#             "created_at": batch.created_at.isoformat() if batch.created_at else None,
-#             "completed_at": batch.completed_at.isoformat() if batch.completed_at else None,
-#             "error_message": batch.error_message
-#         },
-#         "predictions": [
-#             {
-#                 "sk_id_curr": p.sk_id_curr,
-#                 "prediction": p.prediction,
-#                 "probability": p.probability,
-#                 "risk_level": p.risk_level.value
-#             }
-#             for p in predictions
-#         ]
-#     }
+    import anyio
+    return await anyio.to_thread.run_sync(_fetch_history)
 
 
 @router.get("/history/{batch_id}/download")
@@ -573,98 +576,99 @@ async def download_batch_results(
     format: str = "json",  # json or csv
     db: Session = Depends(get_db)
 ):
-    """Download batch predictions with SHAP values.
+    """Download batch predictions with SHAP values with thread offloading."""
+    def _prepare_download():
+        batch = crud.get_batch(db, batch_id)
+        if not batch:
+            return {"error_status": 404, "error_detail": f"Batch {batch_id} not found"}
 
-    Args:
-        batch_id: The batch ID
-        format: Output format - 'json' (default) or 'csv'
+        predictions = crud.get_batch_predictions(db, batch_id)
+        if not predictions:
+            return {"error_status": 404, "error_detail": f"No predictions found for batch {batch_id}"}
 
-    Returns:
-        JSON with predictions and SHAP values, or CSV file
+        if format == "csv":
+            df = pd.DataFrame([
+                {
+                    "SK_ID_CURR": p.sk_id_curr,
+                    "PREDICTION": p.prediction,
+                    "PROBABILITY": p.probability,
+                    "RISK_LEVEL": p.risk_level.value
+                }
+                for p in predictions
+            ])
+            return {"csv_df": df}
 
-    """
-    batch = crud.get_batch(db, batch_id)
-
-    if not batch:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Batch {batch_id} not found"
-        )
-
-    # Get predictions
-    predictions = crud.get_batch_predictions(db, batch_id)
-
-    if not predictions:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"No predictions found for batch {batch_id}"
-        )
-
-    # Build response with SHAP values
-    predictions_data = [
-        {
-            "SK_ID_CURR": p.sk_id_curr,
-            "prediction": p.prediction,
-            "probability": p.probability,
-            "risk_level": p.risk_level.value,
-            "shap_values": p.shap_values if p.shap_values else {},
-            "top_features": p.top_features if p.top_features else []
-        }
-        for p in predictions
-    ]
-
-    if format == "csv":
-        # Create DataFrame for CSV export
-        df = pd.DataFrame([
+        predictions_data = [
             {
                 "SK_ID_CURR": p.sk_id_curr,
-                "PREDICTION": p.prediction,
-                "PROBABILITY": p.probability,
-                "RISK_LEVEL": p.risk_level.value
+                "prediction": p.prediction,
+                "probability": p.probability,
+                "risk_level": p.risk_level.value,
+                "shap_values": p.shap_values if p.shap_values else {},
+                "top_features": p.top_features if p.top_features else []
             }
             for p in predictions
-        ])
+        ]
+        return {
+            "success": True,
+            "batch_id": batch_id,
+            "batch_name": batch.batch_name,
+            "predictions": predictions_data
+        }
 
-        # Create CSV stream
-        csv_stream = dataframe_to_csv_stream(df)
-
+    import anyio
+    result = await anyio.to_thread.run_sync(_prepare_download)
+    
+    if "error_status" in result:
+        raise HTTPException(status_code=result["error_status"], detail=result["error_detail"])
+        
+    if format == "csv" and "csv_df" in result:
+        csv_stream = dataframe_to_csv_stream(result["csv_df"])
         return StreamingResponse(
             csv_stream,
             media_type="text/csv",
-            headers={
-                "Content-Disposition": f"attachment; filename=batch_{batch_id}_predictions.csv"
-            }
+            headers={"Content-Disposition": f"attachment; filename=batch_{batch_id}_predictions.csv"}
         )
 
-    # Default: return JSON with SHAP values
-    return {
-        "success": True,
-        "batch_id": batch_id,
-        "batch_name": batch.batch_name,
-        "predictions": predictions_data
-    }
+    return result
 
+
+# Global cache for statistics
+_STATS_CACHE = {
+    'data': None,
+    'last_updated': 0
+}
+CACHE_TTL_SEC = 60  # Cache stats for 1 minute
 
 @router.get("/statistics")
 async def get_batch_statistics(db: Session = Depends(get_db)):
-    """Get overall batch prediction statistics.
+    """Get overall batch prediction statistics with caching."""
+    now = time.time()
+    if _STATS_CACHE['data'] and (now - _STATS_CACHE['last_updated'] < CACHE_TTL_SEC):
+        return _STATS_CACHE['data']
 
-    Returns:
-        Summary statistics for all batches
+    # Offload heavy DB queries to thread pool
+    def _fetch_stats():
+        stats = crud.get_batch_statistics(db)
+        avg_time = crud.get_average_processing_time(db)
+        daily_counts = crud.get_daily_prediction_counts(db, days=30)
+        return {
+            "success": True,
+            "statistics": {
+                "total_batches": stats['total_batches'],
+                "completed_batches": stats['completed_batches'],
+                "total_predictions": stats['total_predictions'],
+                "risk_distribution": stats['risk_distribution'],
+                "average_processing_time_seconds": avg_time
+            },
+            "daily_predictions": daily_counts,
+            "cached_at": datetime.now().isoformat()
+        }
 
-    """
-    stats = crud.get_batch_statistics(db)
-    avg_time = crud.get_average_processing_time(db)
-    daily_counts = crud.get_daily_prediction_counts(db, days=30)
-
-    return {
-        "success": True,
-        "statistics": {
-            "total_batches": stats['total_batches'],
-            "completed_batches": stats['completed_batches'],
-            "total_predictions": stats['total_predictions'],
-            "risk_distribution": stats['risk_distribution'],
-            "average_processing_time_seconds": avg_time
-        },
-        "daily_predictions": daily_counts
-    }
+    import anyio
+    data = await anyio.to_thread.run_sync(_fetch_stats)
+    
+    _STATS_CACHE['data'] = data
+    _STATS_CACHE['last_updated'] = now
+    
+    return data

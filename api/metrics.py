@@ -86,20 +86,33 @@ def load_predictions():
 
 
 def compute_metrics_for_threshold(y_true, y_proba, threshold, cost_fn=10, cost_fp=1, f_beta=3.2):
-    """Compute all metrics for a single threshold."""
-    y_pred = (y_proba >= threshold).astype(int)
-    cm = confusion_matrix(y_true, y_pred)
-    tn, fp, fn, tp = cm.ravel()
+    """Compute all metrics for a single threshold using vectorized numpy."""
+    # Fast vectorized thresholding
+    y_pred = (y_proba >= threshold).astype(np.int8)
+    
+    # Fast confusion matrix elements calculation
+    tp = np.sum((y_pred == 1) & (y_true == 1))
+    tn = np.sum((y_pred == 0) & (y_true == 0))
+    fp = np.sum((y_pred == 1) & (y_true == 0))
+    fn = np.sum((y_pred == 0) & (y_true == 1))
 
     recall = tp / (tp + fn) if (tp + fn) > 0 else 0
     precision = tp / (tp + fp) if (tp + fp) > 0 else 0
-    f1 = f1_score(y_true, y_pred, zero_division=0)
-    fbeta_val = fbeta_score(y_true, y_pred, beta=f_beta, zero_division=0)
-    accuracy = accuracy_score(y_true, y_pred)
+    
+    # Custom fast F-score calculation
+    if precision + recall > 0:
+        f1 = 2 * (precision * recall) / (precision + recall)
+        beta_sq = f_beta ** 2
+        fbeta_val = (1 + beta_sq) * (precision * recall) / (beta_sq * precision + recall)
+    else:
+        f1 = 0.0
+        fbeta_val = 0.0
+        
+    accuracy = (tp + tn) / (tp + tn + fp + fn)
     cost = cost_fn * fn + cost_fp * fp
 
     return {
-        'cm': cm.tolist(),  # Convert to list for JSON serialization
+        'cm': [[int(tn), int(fp)], [int(fn), int(tp)]],
         'tn': int(tn),
         'fp': int(fp),
         'fn': int(fn),
@@ -207,15 +220,19 @@ def precompute_all_metrics(cost_fn=10, cost_fp=1, f_beta=3.2):
 
 
 def compute_threshold_analysis(y_true, y_proba, cost_fn=10, cost_fp=1):
-    """Compute threshold analysis metrics for plots."""
+    """Compute threshold analysis metrics for plots using vectorized numpy."""
     # Use finer granularity (0.01) to find true optimal threshold
     thresholds = np.arange(0.01, 1.0, 0.01)
     metrics_list = []
 
+    # Vectorized computation for ALL thresholds at once
     for t in thresholds:
-        y_pred_t = (y_proba >= t).astype(int)
-        cm_t = confusion_matrix(y_true, y_pred_t)
-        tn_t, fp_t, fn_t, tp_t = cm_t.ravel()
+        y_pred_t = (y_proba >= t).astype(np.int8)
+        
+        tp_t = np.sum((y_pred_t == 1) & (y_true == 1))
+        tn_t = np.sum((y_pred_t == 0) & (y_true == 0))
+        fp_t = np.sum((y_pred_t == 1) & (y_true == 0))
+        fn_t = np.sum((y_pred_t == 0) & (y_true == 1))
 
         recall_t = tp_t / (tp_t + fn_t) if (tp_t + fn_t) > 0 else 0
         precision_t = tp_t / (tp_t + fp_t) if (tp_t + fp_t) > 0 else 0
@@ -223,13 +240,13 @@ def compute_threshold_analysis(y_true, y_proba, cost_fn=10, cost_fp=1):
         f1_t = 2 * precision_t * recall_t / (precision_t + recall_t) if (precision_t + recall_t) > 0 else 0
 
         metrics_list.append({
-            'Threshold': t,
-            'Recall': recall_t,
-            'Precision': precision_t,
-            'F1 Score': f1_t,
-            'Business Cost': cost_t,
-            'False Negatives': fn_t,
-            'False Positives': fp_t
+            'Threshold': float(t),
+            'Recall': float(recall_t),
+            'Precision': float(precision_t),
+            'F1 Score': float(f1_t),
+            'Business Cost': int(cost_t),
+            'False Negatives': int(fn_t),
+            'False Positives': int(fp_t)
         })
 
     metrics_df = pd.DataFrame(metrics_list)
