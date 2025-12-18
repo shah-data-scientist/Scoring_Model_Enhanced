@@ -407,6 +407,11 @@ def analyze_batch_drift(batch_id: int, reference_batch_id: int, alert_threshold:
             if response.status_code == 200:
                 results = response.json()
                 
+                # Check if we have results
+                if not results.get('results'):
+                    st.warning(f"⚠️ No drift results returned. {results.get('features_checked', 0)} features were checked, but none could be analyzed.")
+                    return
+
                 st.success(f"✅ Analysis Complete: {results['features_checked']} features checked.")
                 
                 # Tabular results preparation
@@ -433,15 +438,19 @@ def analyze_batch_drift(batch_id: int, reference_batch_id: int, alert_threshold:
                 c3.metric("Batch Drift Rate", f"{drift_rate:.1%}")
 
                 st.markdown("### 📊 Detailed Results Table")
-                # Add highlighting for drifted features
-                def highlight_drift(s):
-                    return ['background-color: #ffcccc' if v == "🔴 DRIFT" else '' for v in s]
                 
-                st.dataframe(
-                    df_results.style.apply(highlight_drift, subset=['Status']),
-                    width="stretch",
-                    height=500
-                )
+                if not df_results.empty and 'Status' in df_results.columns:
+                    # Add highlighting for drifted features
+                    def highlight_drift(s):
+                        return ['background-color: #ffcccc' if v == "🔴 DRIFT" else '' for v in s]
+                    
+                    st.dataframe(
+                        df_results.style.apply(highlight_drift, subset=['Status']),
+                        width="stretch",
+                        height=500
+                    )
+                else:
+                    st.dataframe(df_results, width="stretch")
                 
                 # Export option
                 csv = df_results.to_csv(index=False).encode('utf-8')

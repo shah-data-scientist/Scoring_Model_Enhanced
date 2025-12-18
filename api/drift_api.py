@@ -172,17 +172,36 @@ async def detect_drift_batch(
             
             # Detect drift for numeric features - Optimize by only checking important features
             drift_results = {}
-            numeric_cols = current_df.select_dtypes(include=[np.number]).columns
+            # More robust numeric column detection
+            numeric_cols = current_df.select_dtypes(include=[np.number]).columns.tolist()
             
+            if not numeric_cols:
+                # Try to convert columns to numeric if they are strings but look like numbers
+                for col in current_df.columns:
+                    try:
+                        current_df[col] = pd.to_numeric(current_df[col])
+                    except:
+                        pass
+                numeric_cols = current_df.select_dtypes(include=[np.number]).columns.tolist()
+
+            if not numeric_cols:
+                return {"error": "No numeric features found in current batch for drift analysis"}
+
             # Limit to top 50 features if many exist to prevent timeout
             MAX_DRIFT_FEATURES = 50
             if len(numeric_cols) > MAX_DRIFT_FEATURES:
                 try:
-                    importance_path = PROJECT_ROOT / "config" / "model_feature_importance.csv"
+                    from pathlib import Path
+                    # Ensure we have a reliable path to project root
+                    proj_root = Path(__file__).parent.parent
+                    importance_path = proj_root / "config" / "model_feature_importance.csv"
                     if importance_path.exists():
                         imp_df = pd.read_csv(importance_path)
                         top_features = imp_df.head(MAX_DRIFT_FEATURES)['feature'].tolist()
                         numeric_cols = [c for c in numeric_cols if c in top_features]
+                        # If filtering left us with too few, just take first 50 numeric
+                        if len(numeric_cols) < 5:
+                           numeric_cols = current_df.select_dtypes(include=[np.number]).columns.tolist()[:MAX_DRIFT_FEATURES]
                     else:
                         numeric_cols = numeric_cols[:MAX_DRIFT_FEATURES]
                 except:
@@ -190,12 +209,21 @@ async def detect_drift_batch(
 
             for col in numeric_cols:
                 if col not in reference_df.columns:
+                    # print(f"DEBUG: Feature {col} not in reference columns")
                     continue
                 
+                # Ensure reference column is also numeric
+                try:
+                    if not np.issubdtype(reference_df[col].dtype, np.number):
+                        reference_df[col] = pd.to_numeric(reference_df[col], errors='coerce')
+                except:
+                    continue
+
                 ref_vals = reference_df[col].dropna().values
                 curr_vals = current_df[col].dropna().values
                 
-                if len(ref_vals) > 10 and len(curr_vals) > 10:
+                # Relaxed check for small batches (>= 5 samples)
+                if len(ref_vals) >= 10 and len(curr_vals) >= 5:
                     results = detect_feature_drift(
                         feature_name=col,
                         reference_data=ref_vals,
@@ -203,7 +231,15 @@ async def detect_drift_batch(
                         feature_type='numeric'
                     )
                     drift_results[col] = results
+                else:
+                    pass
+                    # print(f"DEBUG: Insufficient data for {col}: Ref={len(ref_vals)}, Curr={len(curr_vals)}")
             
+            if not drift_results:
+                # Debugging info in error message
+                debug_info = f"RefCols={len(reference_df.columns)}, CurrCols={len(numeric_cols)}"
+                return {"error": f"No comparable numeric features found. Checked {len(numeric_cols)} features. {debug_info}. Ensure feature names match training data and batch size >= 5."}
+
             # Save all results in bulk (much faster than individual commits)
             if drift_results:
                 save_drift_results_bulk(db, drift_results, batch_id=batch_id)
