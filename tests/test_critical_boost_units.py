@@ -126,10 +126,15 @@ def test_session_manager_lifecycle(monkeypatch):
 
 
 def test_get_database_url_priority(monkeypatch):
-    # Ensure TEST_DATABASE_URL doesn't interfere
+    # TEST_DATABASE_URL has highest priority
+    monkeypatch.setenv("TEST_DATABASE_URL", "sqlite:///:memory:")
+    monkeypatch.setenv("DATABASE_URL", "postgresql://u:p@h:5432/db")
+    assert db_module.get_database_url() == "sqlite:///:memory:"
+
+    # Ensure TEST_DATABASE_URL doesn't interfere with other tests
     monkeypatch.delenv("TEST_DATABASE_URL", raising=False)
     
-    # Explicit DATABASE_URL wins
+    # Explicit DATABASE_URL wins if TEST_DATABASE_URL is not set
     monkeypatch.setenv("DATABASE_URL", "postgresql://u:p@h:5432/db")
     assert db_module.get_database_url() == "postgresql://u:p@h:5432/db"
 
