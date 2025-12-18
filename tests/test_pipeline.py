@@ -77,7 +77,10 @@ class TestPreprocessingPipeline:
         # Unscaled should have real values, scaled should be different
         # Note: only if scaler is loaded
         if pipeline.scaler is not None:
-            assert not result_unscaled[0].equals(result_unscaled[1])
+            # Scaled values (result_unscaled[0]) should differ from raw values (result_unscaled[1])
+            # unless the raw values coincidentally match the scaled ones (unlikely for our data)
+            diff = (result_unscaled[0] != result_unscaled[1]).any().any()
+            assert diff, "Scaled and unscaled features should differ when scaler is present"
 
 
 class TestCleanColumnNames:

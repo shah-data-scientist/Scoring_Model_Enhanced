@@ -2,6 +2,8 @@
 
 import pytest
 import numpy as np
+from unittest.mock import MagicMock, patch
+import pandas as pd
 
 class TestDriftDetectionEndpoint:
     def test_drift_endpoint_accepts_post(self, test_app_client):
@@ -204,25 +206,55 @@ class TestQualityCheckResults:
             assert "summary" in data
 
 
-class TestMonitoringEndpointPaths:
-    def test_monitoring_prefix_exists(self, test_app_client):
-        """Test monitoring endpoints are under /monitoring path."""
-        # Test a few monitoring endpoints to verify path registration
-        response1 = test_app_client.get("/monitoring/stats/summary")
-        assert response1.status_code in [200, 400, 404, 500]
+class TestBatchMonitoringEndpoints:
+    @patch("api.drift_api.get_batch")
+    @patch("api.drift_api.get_training_reference_data")
+    @patch("api.drift_api.detect_feature_drift")
+    @patch("api.drift_api.save_drift_results_bulk")
+    def test_detect_drift_batch_success(self, mock_save, mock_detect, mock_ref, mock_get_batch, test_app_client):
+        """Test /monitoring/drift/batch/{batch_id} success."""
+        # Mock batch with at least 5 samples
+        mock_batch = MagicMock()
+        mock_apps = []
+        for i in range(5):
+            mock_raw = MagicMock()
+            mock_raw.raw_data = {"EXT_SOURCE_1": 0.5 + i*0.01, "AMT_CREDIT": 100000 + i}
+            mock_apps.append(mock_raw)
+        mock_batch.raw_applications = mock_apps
+        mock_get_batch.return_value = mock_batch
+        
+        # Mock reference data with at least 10 samples
+        mock_ref.return_value = pd.DataFrame({
+            "EXT_SOURCE_1": np.random.normal(0.5, 0.1, 10), 
+            "AMT_CREDIT": np.random.normal(100000, 10000, 10)
+        })
+        
+        # Mock detection result
+        mock_detect.return_value = {
+            "feature_name": "EXT_SOURCE_1",
+            "is_drifted": False,
+            "ks_statistic": 0.1,
+            "p_value": 0.8
+        }
+        
+        response = test_app_client.post("/monitoring/drift/batch/1")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["batch_id"] == 1
+        assert "results" in data
 
-    def test_all_monitoring_routes_callable(self, test_app_client):
-        """Test all monitoring routes are registered."""
-        # Just verify they don't give 404 for method/path mismatch
-        endpoints = [
-            ("/monitoring/stats/summary", "GET"),
-            ("/monitoring/drift", "POST"),
-            ("/monitoring/quality", "POST"),
-        ]
-        for path, method in endpoints:
-            if method == "GET":
-                response = test_app_client.get(path)
-            else:
-                response = test_app_client.post(path, json={})
-            # Endpoint should exist (may return 400 for bad data, but not 404)
-            assert response.status_code != 404 or path == "/monitoring/drift/batch/1"
+    @patch("api.drift_api.get_batch")
+    def test_check_data_quality_batch_success(self, mock_get_batch, test_app_client):
+        """Test /monitoring/quality/batch/{batch_id} success."""
+        # Mock batch
+        mock_batch = MagicMock()
+        mock_raw = MagicMock()
+        mock_raw.raw_data = {"EXT_SOURCE_1": 0.5, "AMT_CREDIT": 100000}
+        mock_batch.raw_applications = [mock_raw]
+        mock_get_batch.return_value = mock_batch
+        
+        response = test_app_client.post("/monitoring/quality/batch/1")
+        assert response.status_code == 200
+        data = response.json()
+        assert "valid" in data
+        assert "missing_values" in data

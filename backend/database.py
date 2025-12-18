@@ -24,12 +24,20 @@ def get_database_url() -> str:
     """Get database URL from environment or use default.
     
     Priority:
-    1. DATABASE_URL environment variable (for Docker/Production)
-    2. Individual PostgreSQL environment variables
-    3. SQLite fallback for local development
+    1. DATABASE_URL environment variable (Explicit override)
+    2. TEST_DATABASE_URL environment variable (for unit tests)
+    3. Individual PostgreSQL environment variables
+    4. SQLite fallback for local development
     """
-    # Check for complete DATABASE_URL
+    # 1. Check for complete DATABASE_URL
     database_url = os.getenv("DATABASE_URL")
+    if database_url and "${" not in database_url:
+        return database_url
+
+    # 2. Check for test database
+    test_db_url = os.getenv("TEST_DATABASE_URL")
+    if test_db_url:
+        return test_db_url
     if database_url and "${" not in database_url:
         return database_url
 

@@ -126,6 +126,9 @@ def test_session_manager_lifecycle(monkeypatch):
 
 
 def test_get_database_url_priority(monkeypatch):
+    # Ensure TEST_DATABASE_URL doesn't interfere
+    monkeypatch.delenv("TEST_DATABASE_URL", raising=False)
+    
     # Explicit DATABASE_URL wins
     monkeypatch.setenv("DATABASE_URL", "postgresql://u:p@h:5432/db")
     assert db_module.get_database_url() == "postgresql://u:p@h:5432/db"
