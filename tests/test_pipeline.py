@@ -52,7 +52,7 @@ class TestPreprocessingPipeline:
         pipeline = PreprocessingPipeline(use_precomputed=False)
         df_app = pd.DataFrame({
             'SK_ID_CURR': [100001],
-            'AMT_INCOME_TOTAL': [150000],
+            'AMT_INCOME_TOTAL': [1000000], # Use a very large value to ensure difference after scaling
             'AMT_CREDIT': [300000],
             'AMT_ANNUITY': [15000],
             'AMT_GOODS_PRICE': [300000],
