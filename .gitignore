@@ -32,6 +32,10 @@ wheels/
 # Data
 data/
 !data/.gitkeep
+!data/processed/feature_names.csv
+!data/processed/global_statistics.json
+!data/processed/medians.json
+!data/processed/scaler.joblib
 artifacts/
 models/
 

@@ -501,6 +501,8 @@ async def predict(input_data: PredictionInput):
         )
 
     try:
+        start_time = time.time()
+
         # Perform range validation
         validate_input_feature_ranges_single_prediction(input_data)
 
@@ -527,6 +529,23 @@ async def predict(input_data: PredictionInput):
             risk_level = "MEDIUM"
         else:
             risk_level = "HIGH"
+
+        # Calculate processing time
+        processing_time_ms = (time.time() - start_time) * 1000
+
+        # Log prediction to predictions.jsonl
+        try:
+            log_prediction(
+                logger=production_logger,
+                sk_id_curr=int(input_data.client_id) if input_data.client_id else 0,
+                probability=float(probability),
+                prediction=int(prediction),
+                risk_level=risk_level,
+                processing_time_ms=processing_time_ms,
+                source="api"
+            )
+        except Exception:
+            pass  # Don't fail the request if logging fails
 
         return PredictionOutput(
             prediction=int(prediction),
