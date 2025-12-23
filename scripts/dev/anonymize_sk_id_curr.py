@@ -20,7 +20,8 @@ def anonymize_end_user_tests():
     """Anonymize SK_ID_CURR in all end_user_tests CSV files."""
     
     # Define paths
-    base_dir = Path(__file__).parent.parent
+    # scripts/dev/script.py -> scripts/dev -> scripts -> project_root
+    base_dir = Path(__file__).parent.parent.parent
     data_dir = base_dir / "data" / "end_user_tests"
     
     # Files that contain SK_ID_CURR

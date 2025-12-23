@@ -32,11 +32,11 @@ def render_user_management():
 
     # Create tabs using radio for persistence
     user_mgmt_labels = ["👥 View Users", "➕ Create User"]
-    
+
     if 'user_mgmt_active_tab' not in st.session_state:
         st.session_state.user_mgmt_active_tab = user_mgmt_labels[0]
-        
-    tabs = st.tabs(user_mgmt_labels, default=st.session_state.user_mgmt_active_tab)
+
+    tabs = st.tabs(user_mgmt_labels)
 
     with tabs[0]:
         st.session_state.user_mgmt_active_tab = user_mgmt_labels[0]

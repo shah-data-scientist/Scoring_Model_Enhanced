@@ -43,11 +43,11 @@ def render_batch_predictions():
     """Render the batch predictions interface."""
     # Create two tabs: Upload & Predict, Download Reports
     batch_labels = ["Upload & Predict", "Download Reports"]
-    
+
     if 'batch_active_tab' not in st.session_state:
         st.session_state.batch_active_tab = batch_labels[0]
-        
-    tabs = st.tabs(batch_labels, default=st.session_state.batch_active_tab)
+
+    tabs = st.tabs(batch_labels)
 
     with tabs[0]:
         st.session_state.batch_active_tab = batch_labels[0]
@@ -464,6 +464,9 @@ def render_download_reports_tab():
     """Render the download reports tab (formerly Batch History)."""
     st.markdown("### Download Reports")
 
+    if 'generated_batch_id' not in st.session_state:
+        st.session_state.generated_batch_id = None
+
     try:
         response = requests.get(f"{API_BASE_URL}/batch/history", timeout=30)
 
@@ -517,39 +520,50 @@ def render_download_reports_tab():
 
                         st.markdown("---")
 
-                        # Download buttons in one row
-                        col_excel, col_html = st.columns(2)
+                        # On-demand report generation to prevent API overload
+                        st.markdown("##### Actions")
+                        
+                        col_gen, col_status = st.columns([1, 2])
+                        
+                        is_generated = st.session_state.generated_batch_id == batch['id']
+                        
+                        with col_gen:
+                            if st.button("🔄 Generate Reports", key=f"gen_{batch['id']}", disabled=is_generated):
+                                st.session_state.generated_batch_id = batch['id']
+                                st.rerun()
 
-                        with col_excel:
-                            st.markdown("##### Excel Results")
-                            st.markdown("*Predictions + SHAP values*")
-                            excel_data = generate_batch_excel(batch['id'])
-                            if excel_data:
-                                # Use user-friendly filename
-                                st.download_button(
-                                    label="Download Excel",
-                                    data=excel_data,
-                                    file_name=f"{batch_name_display}.xlsx",
-                                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                                    key=f"excel_{batch['id']}",
-                                    width="stretch"
-                                )
-
-                        with col_html:
-                            st.markdown("##### Detail Analysis")
-                            st.markdown("*HTML report with SHAP plots*")
-                            # Generate HTML and provide download button
-                            html_report = generate_batch_html_report(batch['id'], batch_name_display)
-                            if html_report:
-                                # Use user-friendly filename
-                                st.download_button(
-                                    label="Download HTML Report",
-                                    data=html_report,
-                                    file_name=f"{batch_name_display}.html",
-                                    mime="text/html",
-                                    key=f"html_{batch['id']}",
-                                    width="stretch"
-                                )
+                        if is_generated:
+                            with st.spinner("Fetching data and generating reports..."):
+                                # Fetch data only when requested
+                                excel_data = generate_batch_excel(batch['id'])
+                                html_report = generate_batch_html_report(batch['id'], batch_name_display)
+                                
+                                col_d1, col_d2 = st.columns(2)
+                                with col_d1:
+                                    if excel_data:
+                                        st.download_button(
+                                            label="📥 Download Excel",
+                                            data=excel_data,
+                                            file_name=f"{batch_name_display}.xlsx",
+                                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                                            key=f"excel_{batch['id']}",
+                                            width="stretch"
+                                        )
+                                    else:
+                                        st.error("Excel generation failed")
+                                
+                                with col_d2:
+                                    if html_report:
+                                        st.download_button(
+                                            label="📥 Download HTML",
+                                            data=html_report,
+                                            file_name=f"{batch_name_display}.html",
+                                            mime="text/html",
+                                            key=f"html_{batch['id']}",
+                                            width="stretch"
+                                        )
+                                    else:
+                                        st.error("HTML generation failed")
             else:
                 st.info("No batch history found. Process your first batch in the **Upload & Predict** tab!")
 

@@ -30,42 +30,47 @@ def render_monitoring():
     from streamlit_app.auth import get_current_user
 
     user = get_current_user()
+
     if not user or user['role'] != UserRole.ADMIN.value:
         st.error("🔒 Access Denied: Admin privileges required")
         return
 
-    # Create tabs (admin-only) with persistence using the new 'default' parameter
-    monitoring_labels = [
-        "📊 Overview",
-        "🧠 Model Monitoring",
-        "⚡ Performance Monitoring",
-        "🔍 Data Quality",
-        "⚙️ System Health"
-    ]
-    
-    if 'monitoring_active_tab' not in st.session_state:
-        st.session_state.monitoring_active_tab = monitoring_labels[0]
-        
-    tabs = st.tabs(monitoring_labels, default=st.session_state.monitoring_active_tab)
+    st.title("📊 Monitoring Dashboard")
 
-    with tabs[0]:
-        st.session_state.monitoring_active_tab = monitoring_labels[0]
+    # Simple button-based navigation instead of tabs
+    col1, col2, col3, col4, col5 = st.columns(5)
+
+    if 'monitoring_view' not in st.session_state:
+        st.session_state.monitoring_view = 'overview'
+
+    with col1:
+        if st.button("📊 Overview", use_container_width=True):
+            st.session_state.monitoring_view = 'overview'
+    with col2:
+        if st.button("🧠 Model", use_container_width=True):
+            st.session_state.monitoring_view = 'model'
+    with col3:
+        if st.button("⚡ Performance", use_container_width=True):
+            st.session_state.monitoring_view = 'performance'
+    with col4:
+        if st.button("🔍 Quality", use_container_width=True):
+            st.session_state.monitoring_view = 'quality'
+    with col5:
+        if st.button("⚙️ Health", use_container_width=True):
+            st.session_state.monitoring_view = 'health'
+
+    st.markdown("---")
+
+    # Render selected view
+    if st.session_state.monitoring_view == 'overview':
         render_overview_tab()
-
-    with tabs[1]:
-        st.session_state.monitoring_active_tab = monitoring_labels[1]
+    elif st.session_state.monitoring_view == 'model':
         render_model_monitoring_tab()
-
-    with tabs[2]:
-        st.session_state.monitoring_active_tab = monitoring_labels[2]
+    elif st.session_state.monitoring_view == 'performance':
         render_performance_monitoring_tab()
-
-    with tabs[3]:
-        st.session_state.monitoring_active_tab = monitoring_labels[3]
-        render_data_quality_tab()
-
-    with tabs[4]:
-        st.session_state.monitoring_active_tab = monitoring_labels[4]
+    elif st.session_state.monitoring_view == 'quality':
+        render_data_quality_tab_simple()
+    elif st.session_state.monitoring_view == 'health':
         render_system_health_tab()
 
 
@@ -75,10 +80,10 @@ def render_overview_tab():
 
     # Fetch statistics
     try:
-        # Keep timeouts short but reasonable
-        stats_response = requests.get(f"{API_BASE_URL}/batch/statistics", timeout=10)
-        health_response = requests.get(f"{API_BASE_URL}/health", timeout=10)
-        db_health_response = requests.get(f"{API_BASE_URL}/health/database", timeout=10)
+        # Keep timeouts short
+        stats_response = requests.get(f"{API_BASE_URL}/batch/statistics", timeout=3)
+        health_response = requests.get(f"{API_BASE_URL}/health", timeout=3)
+        db_health_response = requests.get(f"{API_BASE_URL}/health/database", timeout=3)
         if stats_response.status_code == 200 and health_response.status_code == 200:
             stats = stats_response.json()
             health = health_response.json()
@@ -296,32 +301,22 @@ def render_performance_monitoring_tab():
         st.error(f"Error: {str(e)}")
 
 
-def render_data_quality_tab():
-    """Render the data quality and drift detection tab."""
+def render_data_quality_tab_simple():
+    """Render simplified data quality view."""
     st.markdown("### 🔍 Data Quality & Drift Detection")
 
-    # Tab within the tab for different views
-    quality_labels = [
-        "📊 Feature Drift",
-        "✔️ Data Quality",
-        "📈 Drift History"
-    ]
-    
-    if 'quality_active_tab' not in st.session_state:
-        st.session_state.quality_active_tab = quality_labels[0]
-        
-    tabs = st.tabs(quality_labels, default=st.session_state.quality_active_tab)
+    # Use radio buttons instead of nested tabs
+    view = st.radio(
+        "Select View:",
+        ["Feature Drift", "Data Quality", "Drift History"],
+        horizontal=True
+    )
 
-    with tabs[0]:
-        st.session_state.quality_active_tab = quality_labels[0]
+    if view == "Feature Drift":
         render_drift_detection()
-
-    with tabs[1]:
-        st.session_state.quality_active_tab = quality_labels[1]
+    elif view == "Data Quality":
         render_data_quality_checks()
-
-    with tabs[2]:
-        st.session_state.quality_active_tab = quality_labels[2]
+    elif view == "Drift History":
         render_drift_history()
 
 
@@ -539,11 +534,16 @@ def check_data_quality(batch_id: int):
                     unsafe_allow_html=True
                 )
 
-                # Tabs for different quality views
-                q_tabs = st.tabs(["📊 Missing Values", "🎯 Out-of-Range", "📋 Detailed Report"])
+                # Use radio buttons instead of tabs for quality views
+                quality_view = st.radio(
+                    "Select Quality View:",
+                    ["📊 Missing Values", "🎯 Out-of-Range", "📋 Detailed Report"],
+                    horizontal=True,
+                    key="quality_detail_view"
+                )
 
-                # Missing values tab
-                with q_tabs[0]:
+                # Missing values view
+                if quality_view == "📊 Missing Values":
                     if quality_result.get('missing_values'):
                         missing_df = pd.DataFrame(
                             list(quality_result['missing_values'].items()),
@@ -561,8 +561,8 @@ def check_data_quality(batch_id: int):
                     else:
                         st.success("No missing values detected!")
 
-                # Out of range tab
-                with q_tabs[1]:
+                # Out of range view
+                elif quality_view == "🎯 Out-of-Range":
                     if quality_result.get('out_of_range'):
                         issues = []
                         for col, info in quality_result['out_of_range'].items():
@@ -605,8 +605,8 @@ def check_data_quality(batch_id: int):
                     else:
                         st.success("All values within expected training data ranges!")
 
-                # Detailed Report tab
-                with q_tabs[2]:
+                # Detailed Report view
+                elif quality_view == "📋 Detailed Report":
                     st.json(quality_result)
 
             else:

@@ -60,7 +60,13 @@
       "Bash(poetry run pip:*)",
       "Bash(poetry run ruff:*)",
       "Bash(poetry run mypy:*)",
-      "Bash(poetry run black:*)"
+      "Bash(poetry run black:*)",
+      "Bash(if [ -f \"logs/predictions.jsonl\" ])",
+      "Bash(then tail -3 logs/predictions.jsonl)",
+      "Bash(else echo \"File not found\")",
+      "Bash(mkdir:*)",
+      "Bash(mv:*)",
+      "Bash(timeout 5 curl:*)"
     ],
     "deny": [],
     "ask": []

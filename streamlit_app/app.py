@@ -135,15 +135,15 @@ def main():
                     pass  # API might not be running - that's OK
             st.session_state.initial_load_complete = True
 
-        # Create tab-based navigation with state persistence using the new 'default' parameter
+        # Create tab-based navigation
         if is_admin:
             tab_labels = ["📈 Model Performance", "📁 Batch Predictions", "📉 Monitoring"]
-            
+
             # Use session state to track active tab by label
             if 'main_active_tab' not in st.session_state:
                 st.session_state.main_active_tab = tab_labels[0]
-                
-            tabs = st.tabs(tab_labels, default=st.session_state.main_active_tab)
+
+            tabs = st.tabs(tab_labels)
 
             with tabs[0]:
                 st.session_state.main_active_tab = tab_labels[0]
@@ -161,11 +161,11 @@ def main():
                 render_monitoring_page()
         else:
             tab_labels = ["📈 Model Performance", "📁 Batch Predictions"]
-            
+
             if 'main_active_tab' not in st.session_state:
                 st.session_state.main_active_tab = tab_labels[0]
 
-            tabs = st.tabs(tab_labels, default=st.session_state.main_active_tab)
+            tabs = st.tabs(tab_labels)
 
             with tabs[0]:
                 st.session_state.main_active_tab = tab_labels[0]

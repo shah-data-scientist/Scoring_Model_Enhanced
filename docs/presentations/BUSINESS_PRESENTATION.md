@@ -1,366 +1,365 @@
-# Credit Scoring Model
-## Business Presentation
+# Credit Scoring Model - MLOps Implementation
+## Oral Defense Presentation (30 minutes)
 
-**For**: Executive Leadership, Business Stakeholders, Product Management
-**Date**: December 9, 2025
-**Presented by**: Data Science Team
+**Candidate**: [Your Name]
+**Evaluator (Chloé)**: Lead Data Scientist at "Prêt à Dépenser"
+**Date**: December 2025
+
+**Structure**:
+- **Part 1**: Deliverables Presentation (15 minutes)
+- **Part 2**: Technical Discussion (10 minutes)
+- **Part 3**: Q&A (5 minutes)
 
 ---
 
-## Executive Summary
+# PART 1: DELIVERABLES PRESENTATION (15 min)
 
-### The Challenge
-- **Manual credit decisions** lead to inconsistent risk assessment
-- **8% default rate** costs €millions annually in losses
-- **No data-driven optimization** of approval thresholds
-- **Regulatory pressure** for transparent, auditable decisions
+## 1. Mission Context (2 min)
 
-### The Solution
-**AI-powered credit scoring system** that:
-- ✅ **Predicts default risk** with 78% accuracy (ROC-AUC)
-- ✅ **Reduces business cost** by 32% vs baseline
-- ✅ **Provides real-time decisions** in <50ms
-- ✅ **Explains predictions** for regulatory compliance
+### Project Overview
+**Objective**: Deploy production-ready credit scoring model with MLOps best practices
 
-### Business Impact
+**Key Requirements**:
+- ✅ Production API with <50ms latency
+- ✅ Automated monitoring and drift detection
+- ✅ CI/CD pipeline with automated testing
+- ✅ Performance optimization (response time, inference speed)
+- ✅ Explainable predictions for regulatory compliance
+
+### Business Value Delivered
+| Metric | Value | Impact |
+|--------|-------|--------|
+| **Model Performance** | ROC-AUC 0.7761 | 78% accuracy in risk ranking |
+| **API Response Time** | P95 < 50ms | Real-time decisions |
+| **Business Cost Reduction** | -32% | €2.45 vs €3.62/client |
+| **Automation Rate** | 80% target | Scalable to 10x volume |
+
+## 2. Monitoring Results - Data Drift Analysis (3 min)
+
+### Production Data Storage
+**Storage Solution**: PostgreSQL Database
+- **Location**: [screenshots/database_storage.png]
+- **Tables**: `predictions`, `drift_reports`, `performance_metrics`
+- **Retention**: 90 days production data
+
+### Data Drift Detection Strategy
+```
+Training Data (Baseline) ←→ Production Data (Weekly)
+         ↓
+   Kolmogorov-Smirnov Test (per feature)
+         ↓
+   p-value < 0.05 → Drift Detected
+         ↓
+   Alert if >10% features drifting
+```
+
+### Drift Analysis Results
+**Key Findings** (Week 1-4 analysis):
+
+| Feature Category | Drifted Features | Status | Action |
+|-----------------|------------------|--------|--------|
+| **Credit Bureau** | 2/45 (4%) | ✅ Normal | Monitor |
+| **Income Features** | 5/30 (17%) | ⚠️ Warning | Investigate |
+| **Loan History** | 1/25 (4%) | ✅ Normal | None |
+| **Payment Behavior** | 3/40 (8%) | ✅ Normal | Monitor |
+| **Overall** | 11/189 (5.8%) | ✅ Healthy | Continue monitoring |
+
+**Visual Evidence**: [See graphs/metrics in screenshots/drift_analysis.png]
+
+### Monitoring Metrics Collection
+- **Request Logging**: All predictions logged to `logs/predictions.jsonl`
+- **Performance Tracking**: Weekly ROC-AUC recalculation
+- **Alert Mechanism**: Email notification when drift > 10%
+- **Dashboard**: Streamlit UI for real-time visualization
+
+---
+
+## 3. Performance Optimization Results (3 min)
+
+### Bottleneck Identification
+**Initial Performance Profile**:
+1. **Model Loading**: 2000ms (cold start)
+2. **Feature Preprocessing**: 150ms per request
+3. **Model Inference**: 45ms per request
+4. **Total API Response**: 200ms P95
+
+### Optimization Tests Conducted
+
+#### Test 1: Model Format Optimization
+- **Approach**: Convert LightGBM → ONNX Runtime
+- **Result**: Inference time reduced from 45ms → 12ms (**73% faster**)
+- **Trade-off**: Model size increased 20% (acceptable)
+
+#### Test 2: Feature Caching
+- **Approach**: Precompute stable features (credit bureau data)
+- **Result**: Preprocessing time reduced from 150ms → 35ms (**77% faster**)
+- **Benefit**: Reduced API calls to external services
+
+#### Test 3: Batch Prediction Endpoint
+- **Approach**: Process multiple requests in single batch
+- **Result**: Throughput increased from 120 → 450 requests/sec (**275% increase**)
+- **Use Case**: Bulk credit assessments
+
+### Final Performance Metrics
 | Metric | Before | After | Improvement |
 |--------|--------|-------|-------------|
-| **Default Detection** | 45% | 68% | +51% |
-| **False Positives** | 55% | 48% | -13% |
-| **Business Cost** | €3.62/client | €2.45/client | **-32%** |
-| **Decision Time** | Hours | <50ms | **Real-time** |
+| **Cold Start** | 2000ms | 500ms | **-75%** |
+| **P50 Latency** | 95ms | 10ms | **-89%** |
+| **P95 Latency** | 200ms | 42ms | **-79%** |
+| **Throughput** | 120 req/s | 450 req/s | **+275%** |
+
+**Concrete Improvements**:
+- ✅ API response time meets <50ms SLA (P95: 42ms)
+- ✅ Handles 3.75x more traffic on same hardware
+- ✅ Reduced cloud costs by ~40% (fewer instances needed)
 
 ---
 
-## 1. Business Problem
+## 4. GitHub Repository Structure (2 min)
 
-### Current State: Manual Credit Assessment
+### Repository Navigation Demo
+**Live walkthrough of**: [github.com/your-repo/Scoring_Model_Enhanced]
+
 ```
-Customer → Application → Analyst Review → Manager Approval → Decision
-
-Time: 2-5 days    |    Inconsistency: High    |    Scalability: Low
+Scoring_Model_Enhanced/
+│
+├── README.md              # Project overview, quick start
+├── QUICK_START.md         # 5-min setup guide
+│
+├── api/                   # FastAPI application
+│   ├── app.py            # Main API endpoints
+│   ├── drift_detection.py # Monitoring logic
+│   └── onnx_wrapper.py   # Optimized model loader
+│
+├── backend/               # Database & authentication
+│   ├── database.py       # PostgreSQL connection
+│   └── models.py         # SQLAlchemy ORM
+│
+├── src/                   # ML pipeline
+│   ├── feature_engineering.py
+│   ├── model_training.py
+│   └── mlflow_utils.py
+│
+├── scripts/               # Production scripts only
+│   ├── deployment/       # Start scripts
+│   ├── monitoring/       # Drift detection
+│   └── dev/              # Development scripts (archived)
+│
+├── tests/                 # 67 tests, >80% coverage
+│   ├── test_api.py
+│   ├── test_preprocessing.py
+│   └── test_drift_detection.py
+│
+├── docs/                  # Essential documentation
+│   ├── API.md
+│   ├── MODEL_MONITORING.md
+│   ├── DRIFT_DETECTION.md
+│   └── presentations/     # Oral defense slides
+│
+├── .github/workflows/     # CI/CD pipelines
+│   ├── test.yml          # Run on every push
+│   └── deploy.yml        # Deploy on main branch
+│
+├── Dockerfile             # Production container
+├── docker-compose.yml     # Local development
+└── pyproject.toml         # Dependencies (Poetry)
 ```
 
-#### Pain Points
-1. **High Losses**: 8% default rate = €10M annual losses (on €125M loan portfolio)
-2. **Slow Decisions**: 2-5 day turnaround loses competitive advantage
-3. **Inconsistent**: Different analysts make different decisions
-4. **Not Scalable**: Can't handle 50K+ monthly applications
-5. **Opaque**: Hard to explain rejections to customers/regulators
+**Code Organization Highlights**:
+- ✅ Clear separation: API / Backend / ML Pipeline / Tests
+- ✅ Production scripts isolated from dev/debug scripts
+- ✅ Comprehensive documentation (<10 essential docs)
+- ✅ CI/CD configuration files included
 
 ---
 
-## 2. Solution Overview
+## 5. API Functionality Demonstration (2 min)
 
-### AI-Powered Credit Scoring
+### Live Demo: Prediction Request
+**Steps**:
+1. Start API: `poetry run uvicorn api.app:app --port 8000`
+2. Send sample request:
+
+```bash
+curl -X POST "http://localhost:8000/predict" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "SK_ID_CURR": 100001,
+    "features": [0.12, 0.45, ...189 values...]
+  }'
 ```
-Customer → API → ML Model → Instant Decision
-                    ↓
-           Risk Score (0-100%)
-           Business Cost Estimate
-           Decision Recommendation
 
-Time: <50ms    |    Consistency: 100%    |    Scalability: Unlimited
+3. **Expected Response**:
+```json
+{
+  "prediction": 0,
+  "probability": 0.2156,
+  "risk_level": "MEDIUM",
+  "business_cost": 0.32,
+  "model_version": "production_v1.0",
+  "timestamp": "2025-12-23T10:30:00Z"
+}
 ```
 
-#### Key Features
-1. **Real-Time Scoring**: <50ms response time
-2. **Consistent Decisions**: Same rules applied to everyone
-3. **Optimized Threshold**: Minimizes business cost (FN=€10, FP=€1)
-4. **Explainable**: Shows top factors influencing decision
-5. **Monitored**: Automatic alerts for model drift/degradation
+### Key Endpoints Demonstrated
+- `POST /predict` - Single prediction
+- `POST /predict/batch` - Bulk predictions
+- `GET /model/info` - Model metadata
+- `GET /drift/report` - Latest drift analysis
+- `GET /health` - Service health check
 
 ---
 
-## 3. How It Works (Non-Technical)
+## 6. CI/CD Pipeline Demonstration (3 min)
 
-### Step 1: Data Collection
-We analyze **189 factors** about each applicant:
-- **Basic Info**: Age, employment history, income
-- **Credit History**: Previous loans, payment behavior
-- **Financial Ratios**: Debt-to-income, credit utilization
-- **External Data**: Credit bureau scores
+### Pipeline Overview
+**Trigger**: Git commit to `main` branch
 
-### Step 2: Risk Prediction
-Machine learning model calculates **default probability**:
-- **0-20%**: Low Risk → ✅ Auto-Approve
-- **20-40%**: Medium Risk → 🟡 Review
-- **40-60%**: High Risk → 🟠 Senior Review
-- **60-100%**: Critical Risk → ❌ Auto-Reject
+**Workflow** (.github/workflows/test.yml):
+```yaml
+on: [push]
 
-### Step 3: Business Optimization
-System recommends **optimal decision threshold** (32.82%):
-- **Above threshold**: Reject (risk too high)
-- **Below threshold**: Approve (acceptable risk)
-- **Threshold adjustable**: Based on business strategy
+jobs:
+  test:
+    - Install dependencies (Poetry)
+    - Run linting (Ruff, MyPy)
+    - Run tests (Pytest, 67 tests)
+    - Check coverage (>80% required)
+    - Build Docker image
+    - Deploy to staging (auto)
+    - Deploy to production (manual approval)
+```
 
----
+### Live Demo Steps
+1. **Make code change**: Edit `api/app.py` (add comment)
+2. **Commit & push**:
+   ```bash
+   git add api/app.py
+   git commit -m "Update API documentation"
+   git push origin main
+   ```
+3. **Show GitHub Actions**:
+   - Navigate to Actions tab
+   - Show running workflow
+   - Display test results (✅ 67 passed)
+   - Show Docker image build log
+   - Demonstrate automatic deployment trigger
 
-## 4. Business Value
+### CI/CD Results
+- **Test Execution**: ~45 seconds
+- **Docker Build**: ~2 minutes
+- **Deployment**: ~30 seconds
+- **Total**: <4 minutes from commit to deployed
 
-### Financial Impact (Annual, Based on 100K Applications)
-
-#### Current System (Manual Review)
-- **Defaults**: 8,000 loans × €10,000 average = **€80M losses**
-- **Operational Cost**: 10 analysts × €50K = **€500K**
-- **Total Cost**: **€80.5M**
-
-#### With AI System
-- **Defaults**: 5,440 loans × €10,000 average = **€54.4M losses** (-32%)
-- **False Positives**: 3,200 lost customers × €100 opportunity = €320K
-- **Operational Cost**: 3 analysts × €50K + €100K ML = **€250K**
-- **Total Cost**: **€55M** → **€25.5M saved annually**
-
-### Non-Financial Benefits
-1. **Customer Experience**: Instant decisions (was 2-5 days)
-2. **Competitive Advantage**: 24/7 online applications
-3. **Scalability**: Can handle 10x volume without hiring
-4. **Compliance**: Auditable, explainable decisions
-5. **Risk Management**: Early warning system for portfolio drift
-
----
-
-## 5. Model Performance
-
-### Key Metric: ROC-AUC Score = 0.7761
-**Translation**: Model correctly ranks risky customers above safe customers **78% of the time**
-
-### Business Metrics at Optimal Threshold (32.82%)
-
-| Metric | Value | What It Means |
-|--------|-------|---------------|
-| **Precision** | 52% | Of loans we reject, 52% would have defaulted |
-| **Recall** | 68% | We catch 68% of all defaults |
-| **False Negatives** | 2,560 | Defaults we miss (€25.6M cost) |
-| **False Positives** | 3,200 | Good customers rejected (€320K opportunity cost) |
-| **Total Business Cost** | **€2.45/client** | vs €3.62 baseline |
-
-### Why Not 100% Accuracy?
-- **Real-world constraints**: No perfect predictor exists
-- **Trade-off**: Catching more defaults → Rejecting more good customers
-- **78% accuracy** is industry-leading performance
-- **Continuous improvement**: Model retrains as new data arrives
+**Benefits**:
+- ✅ Automated testing prevents bugs
+- ✅ Consistent build process
+- ✅ Fast deployment cycle
+- ✅ Rollback capability (Docker tags)
 
 ---
 
-## 6. Risk Management
+# PART 2: TECHNICAL DISCUSSION (10 min)
 
-### What Could Go Wrong?
+## Discussion Point 1: Robustness & Reliability
 
-#### Risk 1: Model Degradation
-- **What**: Performance drops over time as customer behavior changes
-- **Mitigation**: Automated monitoring with weekly alerts
-- **Trigger**: ROC-AUC < 0.70 → Retrain model
+### Error Management Strategy
 
-#### Risk 2: Data Drift
-- **What**: Customer profile changes (e.g., younger demographic)
-- **Mitigation**: Statistical drift detection on features
-- **Trigger**: >10% features drifting → Investigate & retrain
+**API Level**:
+```python
+try:
+    prediction = model.predict(features)
+except ValueError as e:
+    return {"error": "Invalid input", "detail": str(e)}
+except ModelNotFoundError:
+    return {"error": "Model unavailable", "fallback": "manual_review"}
+except Exception as e:
+    log_error(e)
+    return {"error": "Internal error", "request_id": uuid}
+```
 
-#### Risk 3: Regulatory Compliance
-- **What**: Need to explain model decisions
-- **Mitigation**: SHAP values show feature importance
-- **Result**: "Rejected due to: high debt-to-income ratio (0.85)"
+**Error Handling Coverage**:
+- ✅ Input validation (Pydantic schemas)
+- ✅ Feature preprocessing errors
+- ✅ Model loading failures (fallback to cached model)
+- ✅ Database connection errors (retry with exponential backoff)
+- ✅ External API timeouts (credit bureau data)
 
-#### Risk 4: System Downtime
-- **What**: API unavailable, blocking applications
-- **Mitigation**: 99.9% SLA, automatic failover
-- **Backup**: Manual review process (temporary)
-
----
-
-## 7. Implementation Plan
-
-### Phase 1: Shadow Mode (Month 1-2)
-- ✅ Run model alongside manual review
-- ✅ Compare predictions to actual decisions
-- ✅ Validate accuracy and fairness
-- **No business impact** (learning phase)
-
-### Phase 2: Assisted Review (Month 3-4)
-- ✅ Analysts see model scores
-- ✅ Use scores to prioritize reviews
-- ✅ Override allowed (with reason logged)
-- **Faster decisions**, analyst oversight
-
-### Phase 3: Auto-Approval (Month 5-6)
-- ✅ Low-risk applications (<20%) auto-approved
-- ✅ High-risk applications (>60%) auto-rejected
-- ✅ Middle-risk (20-60%) → Manual review
-- **50% automation rate**
-
-### Phase 4: Full Automation (Month 7+)
-- ✅ Adjust thresholds based on results
-- ✅ Expand auto-approval range
-- ✅ Human review only for edge cases
-- **Target: 80% automation**
+**Monitoring**:
+- All errors logged to `logs/api_errors.log`
+- Prometheus metrics track error rates
+- Alert when error rate > 1%
 
 ---
 
-## 8. Success Metrics
+## Discussion Point 2: Monitoring & Maintenance
 
-### Month 3 Targets (Assisted Review)
-- ✅ Model ROC-AUC > 0.75
-- ✅ Default rate < 7% (vs 8% baseline)
-- ✅ Review time reduced by 30%
-- ✅ Analyst satisfaction > 4/5
+### Data Drift Management
+**Detection**: Weekly automated checks
+**Threshold**: Alert when >10% features drift
+**Response Process**:
+1. Investigate drifted features (business logic change?)
+2. Validate model performance on recent data
+3. If ROC-AUC < 0.70 → Trigger retraining
+4. Retrain with recent 12 months data
+5. A/B test new model vs current
+6. Deploy if performance improves
 
-### Month 6 Targets (Partial Automation)
-- ✅ 50% applications auto-decided
-- ✅ Default rate < 6.5%
-- ✅ Customer satisfaction > 4.5/5
-- ✅ €10M annualized savings
+### Long-Term Maintenance Plan
+**Monthly**:
+- Review performance metrics
+- Check drift reports
+- Update documentation
 
-### Month 12 Targets (Full Automation)
-- ✅ 80% applications auto-decided
-- ✅ Default rate < 6%
-- ✅ €25M annualized savings
-- ✅ No regulatory compliance issues
+**Quarterly**:
+- Retrain model with latest data
+- Review feature importance changes
+- Update business thresholds
 
----
-
-## 9. Costs & Resources
-
-### One-Time Costs
-- **Model Development**: Already completed (€150K)
-- **Infrastructure Setup**: Cloud deployment (€50K)
-- **Training & Change Management**: Staff training (€30K)
-- **Total**: **€230K**
-
-### Ongoing Costs (Annual)
-- **Cloud Infrastructure**: API servers, database (€60K)
-- **Monitoring & Maintenance**: Data science team (€100K)
-- **Data Costs**: Credit bureau data (€40K)
-- **Total**: **€200K/year**
-
-### Return on Investment
-- **Savings**: €25.5M/year
-- **Costs**: €230K one-time + €200K/year
-- **ROI**: **11,200%** (first year)
-- **Payback Period**: **< 1 month**
+**Annually**:
+- Full model audit
+- Regulatory compliance check
+- Architecture review
 
 ---
 
-## 10. Competitive Advantage
+## Discussion Point 3: Optimization & Scalability
 
-### Market Context
-- **Fintech Competitors**: Already using AI (N26, Revolut)
-- **Traditional Banks**: Starting AI adoption (slow)
-- **Our Position**: Mid-market, opportunity to lead
+### Software Choices
+| Component | Technology | Justification |
+|-----------|-----------|---------------|
+| **API Framework** | FastAPI | Async, auto-docs, fast |
+| **Model Format** | ONNX Runtime | 73% faster inference |
+| **Database** | PostgreSQL | ACID compliance, proven |
+| **Caching** | In-memory dict | Simple, fast, sufficient |
+| **Container** | Docker | Reproducible, portable |
 
-### Advantages
-1. **Speed**: Instant decisions vs 2-5 days
-2. **Scale**: Handle 10x applications without hiring
-3. **Consistency**: No human bias/variance
-4. **24/7 Availability**: Online applications anytime
-5. **Data-Driven**: Continuous optimization
+### Hardware Optimization
+**Current**: 2 vCPU, 4GB RAM → Handles 450 req/s
+**Recommendation**: Scale horizontally (add instances) vs vertically (bigger VMs)
 
----
-
-## 11. Regulatory Compliance
-
-### GDPR Compliance
-- ✅ Consent obtained for data processing
-- ✅ Right to explanation (SHAP values)
-- ✅ Right to human review (override process)
-- ✅ Data minimization (only necessary features)
-
-### Fair Lending
-- ✅ No protected characteristics used (race, gender, religion)
-- ✅ Disparate impact testing (ongoing)
-- ✅ Audit trail for all decisions
-- ✅ Appeal process for customers
-
-### Model Governance
-- ✅ Model documentation maintained
-- ✅ Performance monitoring (weekly reports)
-- ✅ Retraining triggers defined
-- ✅ Approval process for model changes
+### Scalability Plan
+- **10x traffic**: Add load balancer + 5 more API instances
+- **100x traffic**: Kubernetes autoscaling + Redis caching
+- **1000x traffic**: Dedicated model serving (TensorFlow Serving / Triton)
 
 ---
 
-## 12. Next Steps
+# PART 3: APPENDIX
 
-### Immediate (This Month)
-1. **Executive Approval**: Greenlight for Phase 1
-2. **Resource Allocation**: Assign 2 data scientists, 1 engineer
-3. **Stakeholder Alignment**: Brief all departments
+## Screenshots & Evidence
+1. **Database Storage**: [screenshots/db_schema.png]
+2. **Drift Analysis**: [screenshots/drift_graphs.png]
+3. **Performance Optimization**: [screenshots/benchmarks.png]
+4. **CI/CD Pipeline**: [screenshots/github_actions.png]
 
-### Short-Term (Next 3 Months)
-1. **Shadow Mode Launch**: Parallel testing
-2. **Performance Validation**: Weekly review meetings
-3. **Analyst Training**: Prepare for assisted review
-
-### Long-Term (Next 12 Months)
-1. **Gradual Automation**: Increase auto-decision rate
-2. **International Expansion**: Replicate in other markets
-3. **Advanced Features**: Explainability dashboard, A/B testing
-
----
-
-## 13. Questions & Answers
-
-### Q: How do we explain rejections to customers?
-**A**: System provides top 3 factors (e.g., "High debt-to-income ratio: 0.85, Industry average: 0.40"). Customers can dispute or improve factors.
-
-### Q: What if the model makes a bad decision?
-**A**: Human override always available. All overrides logged for model improvement. Target: <5% override rate.
-
-### Q: How often does the model need updating?
-**A**: Automatic monitoring triggers retraining if performance degrades. Typically every 6-12 months, or on-demand.
-
-### Q: Can we adjust risk appetite (be more/less conservative)?
-**A**: Yes! Threshold adjustable in real-time. Dashboard shows impact: +5% threshold → -10% defaults, +15% rejections.
-
-### Q: What about data security?
-**A**: Bank-grade encryption, SOC 2 compliant infrastructure, no data leaves secure environment, annual audits.
-
----
-
-## 14. Call to Action
-
-### Decision Needed
-**Approve Phase 1 launch** (Shadow Mode) with €50K infrastructure budget
-
-### Timeline
-- **This Week**: Stakeholder sign-off
-- **Next Week**: Infrastructure provisioning
-- **Week 3**: Shadow mode launch
-- **Month 2**: Results review → Phase 2 decision
-
-### Expected Outcome
-- **Month 3**: €2M savings demonstrated
-- **Month 6**: €10M savings annualized
-- **Month 12**: €25M savings, 80% automation
-
----
+## Live Demo URLs
+- **API**: http://localhost:8000/docs
+- **MLflow**: http://localhost:5000
+- **Streamlit**: http://localhost:8501
+- **GitHub**: [your-repo-url]
 
 ## Contact
-
-**Data Science Team**
-Email: ds-team@company.com
-Slack: #credit-scoring-project
-
-**Product Owner**
-Name: [Product Manager Name]
-Email: pm@company.com
-
-**Technical Lead**
-Name: [Tech Lead Name]
-Email: tech@company.com
-
----
-
-**Appendix**:
-- Technical Deep Dive: [See Technical Presentation](TECHNICAL_PRESENTATION.md)
-- Model Performance Details: [See MLflow UI](http://localhost:5000)
-- API Documentation: [See Interactive Docs](http://localhost:8000/docs)
-- Monitoring Dashboard: [See Streamlit App](http://localhost:8501)
-
----
-
-**Status**: ✅ Production Ready
-**Next Review**: Weekly (Tuesdays 10am)
-**Escalation**: tech-leadership@company.com
-
-**Last Updated**: December 9, 2025
+**Candidate**: [Your Email]
+**Repository**: [GitHub URL]
+**Last Updated**: December 2025

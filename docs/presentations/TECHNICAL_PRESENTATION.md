@@ -1,26 +1,81 @@
-# Credit Scoring Model
-## Technical Presentation
+# Credit Scoring Model - MLOps Implementation
+## Technical Deep Dive
 
-**For**: Engineering Team, Data Scientists, Technical Leadership
-**Date**: December 9, 2025
-**Presented by**: ML Engineering Team
+**Purpose**: Companion document to oral defense presentation
+**Audience**: Technical reviewers, engineering team
+**Date**: December 2025
+
+**Note**: This document provides detailed technical implementation for reference.
+For the oral defense presentation, see [BUSINESS_PRESENTATION.md](BUSINESS_PRESENTATION.md)
 
 ---
 
-## Technical Summary
+## System Overview
 
-### System Architecture
-- **ML Model**: LightGBM classifier (189 features)
-- **API**: FastAPI with Pydantic validation
-- **Experiment Tracking**: MLflow (3.6)
-- **Monitoring**: Prometheus + custom drift detection
-- **Infrastructure**: Docker + Cloud-ready
+### Technology Stack
+| Component | Technology | Version | Purpose |
+|-----------|-----------|---------|---------|
+| **ML Model** | LightGBM | 4.5.0 | Gradient boosting classifier |
+| **Model Format** | ONNX Runtime | 1.19 | Optimized inference |
+| **API** | FastAPI | 0.115.0 | REST endpoints |
+| **Database** | PostgreSQL | 16.0 | Production data storage |
+| **Validation** | Pydantic | 2.12 | Schema validation |
+| **Tracking** | MLflow | 3.6.0 | Experiment management |
+| **Testing** | Pytest | 8.4.0 | Test automation |
+| **Container** | Docker | 24.0 | Deployment |
+| **CI/CD** | GitHub Actions | - | Automation |
 
-### Performance Metrics
-- **Model**: ROC-AUC 0.7761 ± 0.0064 (5-fold CV)
-- **API**: <50ms P95 latency
-- **Tests**: 67/67 passing (100%)
-- **Coverage**: >85% code coverage
+### Performance Metrics Summary
+- **Model Performance**: ROC-AUC 0.7761 ± 0.0064 (5-fold CV)
+- **API Latency**: P95 < 50ms (target met)
+- **Test Coverage**: >80% (67/67 tests passing)
+- **Throughput**: 450 requests/sec (single instance)
+
+---
+
+## Quick Reference for Oral Defense
+
+### Pre-Demo Checklist
+Before the oral defense, ensure these services are running:
+
+```bash
+# Terminal 1: Start MLflow
+poetry run mlflow ui --backend-store-uri sqlite:///mlflow.db --port 5000
+
+# Terminal 2: Start API
+poetry run uvicorn api.app:app --reload --port 8000
+
+# Terminal 3: Start Streamlit Dashboard
+poetry run streamlit run streamlit_app/Home.py --server.port 8501
+
+# Terminal 4: Start Database (if not running)
+# Ensure PostgreSQL is running with test database
+```
+
+### Demo Commands Ready
+```bash
+# Health check
+curl http://localhost:8000/health
+
+# Single prediction
+curl -X POST "http://localhost:8000/predict" \
+  -H "Content-Type: application/json" \
+  -d @data/samples/sample_request.json
+
+# Drift report
+curl http://localhost:8000/drift/report
+
+# Model info
+curl http://localhost:8000/model/info
+```
+
+### Key Metrics to Mention
+- **ROC-AUC**: 0.7761 (78% accuracy)
+- **Optimal Threshold**: 32.82%
+- **Business Cost**: €2.45/client (-32% vs baseline)
+- **API Latency**: P95 42ms (<50ms SLA)
+- **Test Coverage**: 80%+ (67 tests passing)
+- **Drift Detection**: 5.8% features drifting (healthy)
 
 ---
 
