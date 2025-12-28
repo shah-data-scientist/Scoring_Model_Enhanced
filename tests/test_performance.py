@@ -65,3 +65,105 @@ def test_health_check_latency():
     
     assert response.status_code == 200
     assert duration < 50, f"Health check took {duration:.2f}ms"
+
+@pytest.mark.performance
+def test_batch_history_latency():
+    """Test latency of batch prediction history."""
+    start_time = time.time()
+    response = client.get("/batch/history")
+    duration = (time.time() - start_time) * 1000
+    
+    assert response.status_code in [200, 404]
+    print(f"Batch History Latency: {duration:.2f}ms")
+    assert duration < 200
+
+@pytest.mark.performance
+def test_batch_stats_latency():
+    """Test latency of batch statistics."""
+    start_time = time.time()
+    response = client.get("/batch/statistics")
+    duration = (time.time() - start_time) * 1000
+    
+    assert response.status_code in [200, 404]
+    print(f"Batch Stats Latency: {duration:.2f}ms")
+    assert duration < 200
+
+@pytest.mark.performance
+def test_metrics_precomputed_latency():
+    """Test latency of precomputed metrics."""
+    start_time = time.time()
+    response = client.get("/metrics/precomputed")
+    duration = (time.time() - start_time) * 1000
+    
+    assert response.status_code in [200, 404]
+    print(f"Precomputed Metrics Latency: {duration:.2f}ms")
+    # Relaxed target: 1000ms (0.4s-0.6s is normal for heavy metric loading)
+    assert duration < 1000
+
+@pytest.mark.performance
+def test_data_quality_latency():
+    """Test latency of the data quality check endpoint."""
+    payload = {
+        "dataframe_dict": {
+            "AMT_CREDIT": [100000, 200000, 300000],
+            "AMT_INCOME_TOTAL": [50000, 60000, 70000]
+        },
+        "check_missing": True,
+        "check_range": True
+    }
+    start_time = time.time()
+    response = client.post("/monitoring/quality", json=payload)
+    duration = (time.time() - start_time) * 1000
+    
+    assert response.status_code == 200
+    print(f"Data Quality Latency: {duration:.2f}ms")
+    assert duration < 300
+
+@pytest.mark.performance
+def test_resource_health_latency():
+    """Test latency of system resource check."""
+    start_time = time.time()
+    response = client.get("/health/resources")
+    duration = (time.time() - start_time) * 1000
+    
+    assert response.status_code == 200
+    print(f"Resource Health Latency: {duration:.2f}ms")
+    assert duration < 100
+
+@pytest.mark.performance
+def test_drift_history_latency():
+    """Test latency of drift history."""
+    start_time = time.time()
+    response = client.get("/monitoring/drift/history/AMT_CREDIT")
+    duration = (time.time() - start_time) * 1000
+    
+    assert response.status_code in [200, 404]
+    print(f"Drift History Latency: {duration:.2f}ms")
+    assert duration < 200
+
+@pytest.mark.performance
+def test_drift_api_latency():
+    """Test latency of drift detection endpoint."""
+    payload = {
+        "feature_name": "AMT_CREDIT",
+        "reference_data": list(np.random.normal(500000, 100000, 20)),
+        "current_data": list(np.random.normal(510000, 110000, 20))
+    }
+    
+    start_time = time.time()
+    response = client.post("/monitoring/drift", json=payload)
+    duration = (time.time() - start_time) * 1000
+    
+    # Status code might be 400 if DB is missing, but latency is still measurable
+    print(f"Drift API Latency: {duration:.2f}ms")
+    assert duration < 500
+
+@pytest.mark.performance
+def test_stats_summary_latency():
+    """Test latency of statistics summary endpoint."""
+    start_time = time.time()
+    response = client.get("/monitoring/stats/summary")
+    duration = (time.time() - start_time) * 1000
+    
+    print(f"Stats Summary Latency: {duration:.2f}ms")
+    assert duration < 200
