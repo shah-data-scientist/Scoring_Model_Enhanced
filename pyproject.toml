@@ -41,6 +41,7 @@ dependencies = [
     "onnxruntime (>=1.17.0,<2.0.0)",
     "onnxmltools (>=1.11.0,<2.0.0)",
     "psutil (>=7.1.3,<8.0.0)",
+    "python-pptx (>=1.0.2,<2.0.0)",
 ]
 
 [tool.poetry]
@@ -63,7 +64,7 @@ playwright = "^1.57.0"
 pytest-playwright = "^0.7.2"
 
 [tool.pytest.ini_options]
-addopts = "--cov=api.app --cov=api.batch_predictions --cov=api.drift_api --cov=backend.auth --cov=backend.database --cov=backend.models --cov-report=term --cov-report=xml --cov-fail-under=75"
+addopts = "--cov=api.app --cov=api.batch_predictions --cov=api.drift_api --cov=api.preprocessing_pipeline --cov=backend.auth --cov=backend.database --cov=backend.crud --cov=backend.models --cov-report=term --cov-report=xml --cov-fail-under=75"
 testpaths = ["tests"]
 filterwarnings = [
     "ignore:.*deprecated.*:DeprecationWarning",
@@ -76,6 +77,8 @@ omit = [
     "*/__pycache__/*",
     "*/site-packages/*",
     "htmlcov/*",
+    "backend/init_db.py",
+    "api/mlflow_loader.py",
 ]
 
 [tool.coverage.report]
